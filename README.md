@@ -1,0 +1,2 @@
+# Overview
+collapsebot is the transparency bot for [/r/collapse](https://www.reddit.com/r/collapse) and powers [/r/collapse_wilds](https://www.reddit.com/r/collapse_wilds).  It uses [snoowrap](https://github.com/not-an-aardvark/snoowrap) to detect post removals from the reddit moderator log and submit them to the target subreddit.

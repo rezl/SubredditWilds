@@ -1,0 +1,19 @@
+{
+  "name": "collapsebot",
+  "version": "2.0.1",
+  "description": "collapsebot posts removed submissions from /r/collapse to /r/collapse_wilds",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://git.heroku.com/collapsewilds.git"
+  },
+  "author": "/u/babbles_mcdrinksalot",
+  "license": "MIT",
+  "dependencies": {
+    "snoowrap": "^1.8.1"
+  },
+  "scripts": {
+    "start": "node ."
+  }
+}
+
