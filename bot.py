@@ -17,12 +17,16 @@ class Janitor:
 
         self.source_subreddit_name = os.environ["SOURCE_SUBREDDIT"] \
             if "SOURCE_SUBREDDIT" in os.environ else config.SOURCE_SUBREDDIT
-        self.target_subreddit_name = os.environ["TARGET_SUBREDDIT"] \
-            if "TARGET_SUBREDDIT" in os.environ else config.TARGET_SUBREDDIT
+        self.target_wilds_subreddit_name = os.environ["TARGET_SUBREDDIT_WILDS"] \
+            if "TARGET_SUBREDDIT_WILDS" in os.environ else config.TARGET_SUBREDDIT_WILDS
+        self.target_removals_subreddit_name = os.environ["TARGET_SUBREDDIT_REMOVALS"] \
+            if "TARGET_SUBREDDIT_REMOVALS" in os.environ else config.TARGET_SUBREDDIT_REMOVALS
 
         print("CONFIG: client_id=" + client_id + " client_secret=" + "*********" +
               " bot_username=" + bot_username + " bot_password=" + "*********" +
-              " source_subreddit=" + self.source_subreddit_name + " target_subreddit=" + self.target_subreddit_name)
+              " source_subreddit=" + self.source_subreddit_name +
+              " target_subreddit_wilds=" + self.target_wilds_subreddit_name +
+              " target_removals_subreddit_name=" + self.target_removals_subreddit_name)
 
         self.reddit = praw.Reddit(
             client_id=client_id,
@@ -33,19 +37,31 @@ class Janitor:
             password=bot_password
         )
 
-        # initialize with the last submission time in target sub (assume no non-bot posts)
-        self.time_last_checked = next(self.reddit.subreddit(self.target_subreddit_name).new()).created_utc
+        # initialize with the last submission time in target subs (assume no non-bot posts)
+        last_checked_wilds = next(self.reddit.subreddit(self.target_wilds_subreddit_name).new()).created_utc
+        last_checked_removals = next(self.reddit.subreddit(self.target_removals_subreddit_name).new()).created_utc
+        self.time_last_checked = max(last_checked_wilds, last_checked_removals)
 
     @staticmethod
     def get_id(fullname):
         split = fullname.split("_")
         return split[1] if len(split) > 0 else split[0]
 
-    def handle_recent_posts(self):
-        print("Checking recent posts")
-        source_subreddit_acts = self.reddit.subreddit(self.source_subreddit_name).mod.log(limit=15, action="removelink")
+    @staticmethod
+    def list_comment_mods(subreddit):
+        mods = list()
+        comment_mod_perms = set(Settings.comment_mod_permissions)
+        for moderator in subreddit.moderator():
+            if set(moderator.mod_permissions) == comment_mod_perms:
+                mods.append(moderator)
+        return mods
 
-        removed_set = set()
+    def handle_posts(self):
+        print("Checking posts")
+        subreddit = self.reddit.subreddit(self.source_subreddit_name)
+        source_subreddit_acts = subreddit.mod.log(limit=15, action="removelink")
+        comment_mods = self.list_comment_mods(subreddit)
+
         for action in source_subreddit_acts:
             if action.mod == "AutoModerator":
                 continue
@@ -55,19 +71,29 @@ class Janitor:
             if action.created_utc < self.time_last_checked:
                 break
             submission_id = self.get_id(action.target_fullname)
-            if submission_id in removed_set:
-                continue
             submission = self.reddit.submission(id=submission_id)
-            print(f"Adding post to {self.target_subreddit_name}: {submission.title}")
-            removed_set.add(id)
+
+            wilds_sub = self.target_wilds_subreddit_name
+            print(f"Adding post to {wilds_sub}: {submission.title}")
             title = f"[{submission.score}] {submission.title}"
             url = f"https://np.reddit.com{submission.permalink}"
             if Settings.is_dry_run:
                 print("\tDRY RUN!!!")
                 continue
             else:
-                self.reddit.subreddit(self.target_subreddit_name).submit(title, url=url, send_replies=False)
+                self.reddit.subreddit(wilds_sub).submit(title, url=url, send_replies=False)
                 time.sleep(5)
+
+            # if post was removed by comment mod, also post to removals sub
+            if action.mod in comment_mods:
+                removals_sub = self.target_removals_subreddit_name
+                print(f"Adding post to {removals_sub}: {submission.title}")
+                if Settings.is_dry_run:
+                    print("\tDRY RUN!!!")
+                    continue
+                else:
+                    self.reddit.subreddit(removals_sub).submit(title, url=url, send_replies=False)
+                    time.sleep(5)
 
         self.time_last_checked = calendar.timegm(datetime.utcnow().utctimetuple())
 
@@ -79,7 +105,7 @@ def run_forever():
             while True:
                 try:
                     print("____________________")
-                    janitor.handle_recent_posts()
+                    janitor.handle_posts()
                 except Exception as e:
                     print(e)
                 time.sleep(Settings.post_check_frequency_mins * 60)
@@ -93,7 +119,7 @@ def run_once():
     while True:
         try:
             print("____________________")
-            janitor.handle_recent_posts()
+            janitor.handle_posts()
         except Exception as e:
             print(e)
 
