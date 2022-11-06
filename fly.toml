@@ -1,3 +1,5 @@
+# fly.toml file generated for collapsewilds on 2022-11-06T15:24:28Z
+
 app = "collapsewilds"
 kill_signal = "SIGINT"
 kill_timeout = 5
