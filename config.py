@@ -1,0 +1,7 @@
+BOT_USERNAME = 'ReallyCoolBot'
+BOT_PASSWORD = 'password'
+CLIENT_ID = 'asdfasdfasdf'
+CLIENT_SECRET = 'asdfasdfasdf'
+SOURCE_SUBREDDIT = 'SomeSubreddit'
+TARGET_SUBREDDIT_WILDS = 'SomeOtherSubreddit'
+TARGET_SUBREDDIT_REMOVALS = 'YetAnotherSubreddit'
