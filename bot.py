@@ -1,6 +1,6 @@
 import calendar
 import config
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import praw
 from settings import *
@@ -37,6 +37,9 @@ class Janitor:
             password=bot_password
         )
 
+        self.comment_mods_last_check = datetime.utcfromtimestamp(0)
+        self.cached_comment_mods = self.get_comment_mods(self.reddit.subreddit(self.source_subreddit_name))
+
         # initialize with the last submission time in target subs (assume no non-bot posts)
         last_checked_wilds = next(self.reddit.subreddit(self.target_wilds_subreddit_name).new()).created_utc
         last_checked_removals = next(self.reddit.subreddit(self.target_removals_subreddit_name).new()).created_utc
@@ -47,20 +50,29 @@ class Janitor:
         split = fullname.split("_")
         return split[1] if len(split) > 0 else split[0]
 
-    @staticmethod
-    def list_comment_mods(subreddit):
+    def get_comment_mods(self, subreddit):
+        # refresh comment mods every day
+        if datetime.utcnow() - self.comment_mods_last_check < timedelta(days=1):
+            return self.cached_comment_mods
+
         mods = list()
         comment_mod_perms = set(Settings.comment_mod_permissions)
+        comment_mod_whitelist = set(Settings.comment_mod_whitelist)
         for moderator in subreddit.moderator():
+            if moderator.name in comment_mod_whitelist:
+                continue
             if set(moderator.mod_permissions) == comment_mod_perms:
                 mods.append(moderator)
+        self.comment_mods_last_check = datetime.utcnow()
+        self.cached_comment_mods = mods
+        print(f"Refreshed comment mods: {[mod.name for mod in mods]}")
         return mods
 
     def handle_posts(self):
         print("Checking posts")
         subreddit = self.reddit.subreddit(self.source_subreddit_name)
         source_subreddit_acts = subreddit.mod.log(limit=15, action="removelink")
-        comment_mods = self.list_comment_mods(subreddit)
+        comment_mods = self.get_comment_mods(subreddit)
 
         for action in source_subreddit_acts:
             if action.mod == "AutoModerator":
