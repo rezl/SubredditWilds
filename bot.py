@@ -62,10 +62,10 @@ class Janitor:
             if moderator.name in comment_mod_whitelist:
                 continue
             if set(moderator.mod_permissions) == comment_mod_perms:
-                mods.append(moderator)
+                mods.append(moderator.name)
         self.comment_mods_last_check = datetime.utcnow()
         self.cached_comment_mods = mods
-        print(f"Refreshed comment mods: {[mod.name for mod in mods]}")
+        print(f"Refreshed comment mods: {mods}")
         return mods
 
     def handle_posts(self):
@@ -97,7 +97,7 @@ class Janitor:
                 time.sleep(5)
 
             # if post was removed by comment mod, also post to removals sub
-            if action.mod in comment_mods:
+            if action.mod.name in comment_mods:
                 removals_sub = self.target_removals_subreddit_name
                 print(f"Adding post to {removals_sub}: {submission.title}")
                 if Settings.is_dry_run:
