@@ -40,10 +40,8 @@ class Janitor:
         self.comment_mods_last_check = datetime.utcfromtimestamp(0)
         self.cached_comment_mods = self.get_comment_mods(self.reddit.subreddit(self.source_subreddit_name))
 
-        # initialize with the last submission time in target subs (assume no non-bot posts)
-        last_checked_wilds = next(self.reddit.subreddit(self.target_wilds_subreddit_name).new()).created_utc
-        last_checked_removals = next(self.reddit.subreddit(self.target_removals_subreddit_name).new()).created_utc
-        self.time_last_checked = max(last_checked_wilds, last_checked_removals)
+        # initialize with the last submission time in wilds
+        self.time_last_checked = next(self.reddit.subreddit(self.target_wilds_subreddit_name).new()).created_utc
 
     @staticmethod
     def get_id(fullname):
@@ -86,8 +84,9 @@ class Janitor:
             submission = self.reddit.submission(id=submission_id)
 
             wilds_sub = self.target_wilds_subreddit_name
-            print(f"Adding post to {wilds_sub}: {submission.title}")
-            title = f"[{submission.score}] {submission.title}"
+            title_untruc = f"[{submission.score}] {submission.title}"
+            title = (title_untruc[:275] + '...') if len(title_untruc) > 275 else title_untruc
+            print(f"Adding post to {wilds_sub}: {title}")
             url = f"https://np.reddit.com{submission.permalink}"
             if Settings.is_dry_run:
                 print("\tDRY RUN!!!")
