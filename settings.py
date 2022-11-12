@@ -3,5 +3,5 @@ class Settings:
     is_dry_run = False
     post_check_frequency_mins = 1
     # comment mods are mods with, and only with, these permissions
-    comment_mod_permissions = ["posts", "mail"]
+    comment_mod_permissions = ["posts", "mail", "wiki"]
     comment_mod_whitelist = ["CollapseBot", "StatementBot", "CollapseTesting"]
