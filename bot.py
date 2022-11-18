@@ -110,7 +110,8 @@ class Janitor:
                         self.reddit.subreddit(removals_sub).submit(title, url=url, send_replies=False)
                         time.sleep(5)
             except Exception as e:
-                self.discord_client.send_msg(f"Exception in action loop: {e}")
+                submission_id = self.get_id(action.target_fullname)
+                self.discord_client.send_msg(f"Exception in action loop for {submission_id}: {e}")
                 print(e)
 
         self.time_last_checked = calendar.timegm(datetime.utcnow().utctimetuple())
