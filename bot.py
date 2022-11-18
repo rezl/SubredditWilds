@@ -111,8 +111,9 @@ class Janitor:
                         time.sleep(5)
             except Exception as e:
                 submission_id = self.get_id(action.target_fullname)
-                self.discord_client.send_msg(f"Exception in action loop for {submission_id}: {e}")
-                print(e)
+                message = f"Exception in action loop for {submission_id}: {e}"
+                self.discord_client.send_msg(message)
+                print(message)
 
         self.time_last_checked = calendar.timegm(datetime.utcnow().utctimetuple())
 
@@ -160,8 +161,9 @@ def run_forever():
                 janitor.handle_posts()
                 time.sleep(Settings.post_check_frequency_mins * 60)
         except Exception as e:
-            client.send_msg(f"Exception in main loop: {e}")
-            print(e)
+            message = f"Exception in main loop: {e}"
+            client.send_msg(message)
+            print(message)
             time.sleep(Settings.post_check_frequency_mins * 60)
 
 
