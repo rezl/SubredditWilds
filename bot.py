@@ -76,38 +76,42 @@ class Janitor:
         comment_mods = self.get_comment_mods(subreddit)
 
         for action in source_subreddit_acts:
-            if action.mod == "AutoModerator":
-                continue
-            if action.details == "confirm_spam":
-                continue
-            # actions are provided in time-order, break when found action older than last checked
-            if action.created_utc < self.time_last_checked:
-                break
-            submission_id = self.get_id(action.target_fullname)
-            submission = self.reddit.submission(id=submission_id)
+            try:
+                if action.mod == "AutoModerator":
+                    continue
+                if action.details == "confirm_spam":
+                    continue
+                # actions are provided in time-order, break when found action older than last checked
+                if action.created_utc < self.time_last_checked:
+                    break
+                submission_id = self.get_id(action.target_fullname)
+                submission = self.reddit.submission(id=submission_id)
 
-            wilds_sub = self.target_wilds_subreddit_name
-            title_untruc = f"[{submission.score}] {submission.title}"
-            title = (title_untruc[:275] + '...') if len(title_untruc) > 275 else title_untruc
-            print(f"Adding post to {wilds_sub}: {title}")
-            url = f"https://np.reddit.com{submission.permalink}"
-            if Settings.is_dry_run:
-                print("\tDRY RUN!!!")
-                continue
-            else:
-                self.reddit.subreddit(wilds_sub).submit(title, url=url, send_replies=False)
-                time.sleep(5)
-
-            # if post was removed by comment mod, also post to removals sub
-            if action.mod.name in comment_mods:
-                removals_sub = self.target_removals_subreddit_name
-                print(f"Adding post to {removals_sub}: {submission.title}")
+                wilds_sub = self.target_wilds_subreddit_name
+                title_untruc = f"[{submission.score}] {submission.title}"
+                title = (title_untruc[:275] + '...') if len(title_untruc) > 275 else title_untruc
+                print(f"Adding post to {wilds_sub}: {title}")
+                url = f"https://np.reddit.com{submission.permalink}"
                 if Settings.is_dry_run:
                     print("\tDRY RUN!!!")
                     continue
                 else:
-                    self.reddit.subreddit(removals_sub).submit(title, url=url, send_replies=False)
+                    self.reddit.subreddit(wilds_sub).submit(title, url=url, send_replies=False)
                     time.sleep(5)
+
+                # if post was removed by comment mod, also post to removals sub
+                if action.mod.name in comment_mods:
+                    removals_sub = self.target_removals_subreddit_name
+                    print(f"Adding post to {removals_sub}: {submission.title}")
+                    if Settings.is_dry_run:
+                        print("\tDRY RUN!!!")
+                        continue
+                    else:
+                        self.reddit.subreddit(removals_sub).submit(title, url=url, send_replies=False)
+                        time.sleep(5)
+            except Exception as e:
+                self.discord_client.send_msg(f"Exception in action loop: {e}")
+                print(e)
 
         self.time_last_checked = calendar.timegm(datetime.utcnow().utctimetuple())
 
