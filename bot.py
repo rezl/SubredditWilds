@@ -1,6 +1,11 @@
+import asyncio
 import calendar
+from threading import Thread
+
 import config
 from datetime import datetime, timedelta
+from discord.ext import commands
+import discord
 import os
 import praw
 from settings import *
@@ -8,21 +13,19 @@ import time
 
 
 class Janitor:
-    def __init__(self):
+    def __init__(self, discord_client):
+        self.discord_client = discord_client
+
         # get config from env vars if set, otherwise from config file
-        client_id = os.environ["CLIENT_ID"] if "CLIENT_ID" in os.environ else config.CLIENT_ID
-        client_secret = os.environ["CLIENT_SECRET"] if "CLIENT_SECRET" in os.environ else config.CLIENT_SECRET
-        bot_username = os.environ["BOT_USERNAME"] if "BOT_USERNAME" in os.environ else config.BOT_USERNAME
-        bot_password = os.environ["BOT_PASSWORD"] if "BOT_PASSWORD" in os.environ else config.BOT_PASSWORD
+        client_id = os.environ.get("CLIENT_ID", config.CLIENT_ID)
+        client_secret = os.environ.get("CLIENT_SECRET", config.CLIENT_SECRET)
+        bot_username = os.environ.get("BOT_USERNAME", config.BOT_USERNAME)
+        bot_password = os.environ.get("BOT_PASSWORD", config.BOT_PASSWORD)
+        self.source_subreddit_name = os.environ.get("SOURCE_SUBREDDIT", config.SOURCE_SUBREDDIT)
+        self.target_wilds_subreddit_name = os.environ.get("TARGET_SUBREDDIT_WILDS", config.SOURCE_SUBREDDIT)
+        self.target_removals_subreddit_name = os.environ.get("TARGET_SUBREDDIT_REMOVALS", config.SOURCE_SUBREDDIT)
 
-        self.source_subreddit_name = os.environ["SOURCE_SUBREDDIT"] \
-            if "SOURCE_SUBREDDIT" in os.environ else config.SOURCE_SUBREDDIT
-        self.target_wilds_subreddit_name = os.environ["TARGET_SUBREDDIT_WILDS"] \
-            if "TARGET_SUBREDDIT_WILDS" in os.environ else config.TARGET_SUBREDDIT_WILDS
-        self.target_removals_subreddit_name = os.environ["TARGET_SUBREDDIT_REMOVALS"] \
-            if "TARGET_SUBREDDIT_REMOVALS" in os.environ else config.TARGET_SUBREDDIT_REMOVALS
-
-        print("CONFIG: client_id=" + client_id + " client_secret=" + "*********" +
+        print("CONFIG: client_id=" + client_id + " client_secret=" + "*********" + "discord_token=" + "*********" +
               " bot_username=" + bot_username + " bot_password=" + "*********" +
               " source_subreddit=" + self.source_subreddit_name +
               " target_subreddit_wilds=" + self.target_wilds_subreddit_name +
@@ -31,7 +34,7 @@ class Janitor:
         self.reddit = praw.Reddit(
             client_id=client_id,
             client_secret=client_secret,
-            user_agent="my user agent",
+            user_agent="flyio:com.collapse.collapsewilds:v1.1",
             redirect_uri="http://localhost:8080",  # unused for script applications
             username=bot_username,
             password=bot_password
@@ -109,32 +112,53 @@ class Janitor:
         self.time_last_checked = calendar.timegm(datetime.utcnow().utctimetuple())
 
 
+class DiscordClient(commands.Bot):
+    def __init__(self, guild_name, bot_channel):
+        super().__init__('!', intents=discord.Intents.default())
+        self.guild_name = guild_name
+        self.bot_channel = bot_channel
+        self.guild = None
+        self.channel = None
+        self.is_ready = False
+
+    async def on_ready(self):
+        print(f'{self.user} has connected to Discord!')
+        self.guild = discord.utils.get(self.guilds, name=self.guild_name)
+        self.channel = discord.utils.get(self.guild.channels, name=self.bot_channel)
+        self.is_ready = True
+        print(
+            f'{self.user} is connected to the following guild:\n'
+            f'{self.guild.name}(id: {self.guild.id})'
+        )
+
+    def send_msg(self, message):
+        full_message = f"Collapsewilds script has had an exception. Please check on it.\n{message}"
+        if self.channel:
+            asyncio.run_coroutine_threadsafe(self.channel.send(full_message), self.loop)
+
+
 def run_forever():
+    discord_token = os.environ.get("DISCORD_TOKEN", config.DISCORD_TOKEN)
+    guild_name = os.environ.get("DISCORD_GUILD", config.DISCORD_GUILD)
+    guild_channel = os.environ.get("DISCORD_CHANNEL", config.DISCORD_CHANNEL)
+    client = DiscordClient(guild_name, guild_channel)
+    Thread(target=client.run, args=(discord_token,)).start()
+
+    while not client.is_ready:
+        time.sleep(1)
+
     while True:
         try:
-            janitor = Janitor()
+            janitor = Janitor(client)
             while True:
-                try:
-                    print("____________________")
-                    janitor.handle_posts()
-                except Exception as e:
-                    print(e)
+                print("____________________")
+                janitor.handle_posts()
                 time.sleep(Settings.post_check_frequency_mins * 60)
         except Exception as e:
+            client.send_msg(f"Exception in main loop: {e}")
             print(e)
-        time.sleep(Settings.post_check_frequency_mins * 60)
-
-
-def run_once():
-    janitor = Janitor()
-    while True:
-        try:
-            print("____________________")
-            janitor.handle_posts()
-        except Exception as e:
-            print(e)
+            time.sleep(Settings.post_check_frequency_mins * 60)
 
 
 if __name__ == "__main__":
-    # run_once()
     run_forever()
