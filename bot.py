@@ -1,5 +1,6 @@
 import asyncio
 import calendar
+import traceback
 from threading import Thread
 
 import config
@@ -111,7 +112,7 @@ class Janitor:
                         time.sleep(5)
             except Exception as e:
                 submission_id = self.get_id(action.target_fullname)
-                message = f"Exception in action loop for {submission_id}: {e}"
+                message = f"Exception when handling action {submission_id}: {e}\n```{traceback.format_exc()}```"
                 self.discord_client.send_msg(message)
                 print(message)
 
@@ -138,7 +139,8 @@ class DiscordClient(commands.Bot):
         )
 
     def send_msg(self, message):
-        full_message = f"Collapsewilds script has had an exception. Please check on it.\n{message}"
+        full_message = f"Collapsewilds script has had an exception. This can normally be ignored, " \
+                       f"but if it's occurring frequently, may indicate a script error.\n{message}"
         if self.channel:
             asyncio.run_coroutine_threadsafe(self.channel.send(full_message), self.loop)
 
@@ -161,7 +163,7 @@ def run_forever():
                 janitor.handle_posts()
                 time.sleep(Settings.post_check_frequency_mins * 60)
         except Exception as e:
-            message = f"Exception in main loop: {e}"
+            message = f"Exception in main processing: {e}\n```{traceback.format_exc()}```"
             client.send_msg(message)
             print(message)
             time.sleep(Settings.post_check_frequency_mins * 60)
