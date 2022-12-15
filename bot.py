@@ -16,7 +16,8 @@ import time
 class SubredditTracker:
     def __init__(self, subreddit, subreddit_wilds, subreddit_removals,
                  comment_mod_permissions, comment_mod_whitelist,
-                 discord_removals_server, discord_removals_channel):
+                 discord_removals_server, discord_removals_channel,
+                 check_modmail):
         # wilds, removals, and the discord fields may be None
         self.subreddit_name = subreddit.display_name
         self.subreddit = subreddit
@@ -28,6 +29,8 @@ class SubredditTracker:
 
         self.discord_removals_server = discord_removals_server
         self.discord_removals_channel = discord_removals_channel
+
+        self.check_modmail = check_modmail
 
         # initialize with the last submission time in wilds
         self.time_last_checked = next(subreddit_wilds.new()).created_utc if subreddit_wilds else 0
@@ -128,6 +131,36 @@ class Janitor:
 
         subreddit_tracker.time_last_checked = calendar.timegm(datetime.utcnow().utctimetuple())
 
+    @staticmethod
+    def check_modmail(subreddit_tracker):
+        if not subreddit_tracker.check_modmail:
+            return
+        conversations = subreddit_tracker.subreddit.modmail.conversations(sort="unread")
+        for conversation in conversations:
+            # already read
+            if not conversation.last_unread:
+                break
+            # mod has already responded to the conversation
+            if len(conversation.authors) > 1 or conversation.last_mod_update:
+                continue
+            # message already contains a link to some reddit content
+            if Janitor.modmail_contains_link(subreddit_tracker.subreddit_name, conversation):
+                continue
+            message = f"Hi, thanks for messaging the r/{subreddit_tracker.subreddit_name} mods. " \
+                      "If this message is about removed content, " \
+                      "please respond with a link to the content in question.\n\n" \
+                      "This is an automated bot response. " \
+                      "An organic mod will respond to you soon, please allow 2 days as our team is across the world"
+            print(f"Responding to modmail {conversation.id}: {message}")
+            conversation.reply(body=message, author_hidden=False)
+
+    @staticmethod
+    def modmail_contains_link(subreddit_name, conversation):
+        for message in conversation.messages:
+            if f"r/{subreddit_name}/comments/" in message.body_markdown:
+                return True
+        return False
+
 
 class DiscordClient(commands.Bot):
     def __init__(self, error_guild_name, error_guild_channel):
@@ -206,7 +239,8 @@ def run_forever():
                                                      settings.comment_mod_permissions,
                                                      settings.comment_mod_whitelist,
                                                      settings.discord_removals_server,
-                                                     settings.discord_removals_channel)
+                                                     settings.discord_removals_channel,
+                                                     settings.check_modmail)
                 subreddits.append(subreddit_tracker)
                 print(f"Created {subreddit_name} subreddit with {type(settings).__name__} settings")
 
@@ -215,6 +249,7 @@ def run_forever():
                     print("____________________")
                     print(f"Checking Subreddit: {subreddit.subreddit_name}")
                     janitor.handle_posts(subreddit)
+                    janitor.check_modmail(subreddit)
                 time.sleep(Settings.post_check_frequency_mins * 60)
         except Exception as e:
             message = f"Exception in main processing: {e}\n```{traceback.format_exc()}```"

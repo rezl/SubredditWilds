@@ -2,6 +2,9 @@ class Settings:
     # set to True to prevent any bot actions (report, remove, comments)
     is_dry_run = False
     post_check_frequency_mins = 1
+
+    check_modmail = False
+
     # comment mods are mods with, and only with, these permissions
     comment_mod_permissions = ["posts", "mail", "wiki"]
     # comment mods who should not have their posts checked
@@ -14,6 +17,8 @@ class Settings:
 
 
 class CollapseSettings(Settings):
+    check_modmail = True
+
     comment_mod_whitelist = ["CollapseBot", "StatementBot", "CollapseTesting"]
 
     subreddit_wilds = 'collapse_wilds'
