@@ -16,7 +16,7 @@ collapsebot is the transparency bot for [/r/collapse](https://www.reddit.com/r/c
 
 4. From your new repo, select **Code** and then under **Clone** copy the HTTPS URL (e.g. https://github.com/rezl/SubmissionStatementBot.git) to download a local copy
 
-![img.png](img.png)
+![img.png](pictures/img.png)
 
 5. Navigate to a folder you want a local copy of the repo to live, and clone the Github repo to your local PC:
    1. It's up to you where to put the repo - recommended in a folder like C:\<username>\Documents\ or a new folder, C:\<username>\Documents\Programming

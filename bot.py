@@ -135,7 +135,7 @@ class Janitor:
     def check_modmail(subreddit_tracker):
         if not subreddit_tracker.check_modmail:
             return
-        conversations = subreddit_tracker.subreddit.modmail.conversations(sort="unread")
+        conversations = subreddit_tracker.subreddit.modmail.conversations(state="new", sort="unread")
         for conversation in conversations:
             # already read
             if not conversation.last_unread:
