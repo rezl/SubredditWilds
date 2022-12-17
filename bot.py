@@ -152,12 +152,15 @@ class Janitor:
                       "This is an automated bot response. " \
                       "An organic mod will respond to you soon, please allow 2 days as our team is across the world"
             print(f"Responding to modmail {conversation.id}: {message}")
+            if Settings.is_dry_run:
+                print("\tDRY RUN!!!")
+                continue
             conversation.reply(body=message, author_hidden=False)
 
     @staticmethod
     def modmail_contains_link(subreddit_name, conversation):
         for message in conversation.messages:
-            if f"r/{subreddit_name}/comments/" in message.body_markdown:
+            if f"r/{subreddit_name.lower()}/comments/" in message.body_markdown:
                 return True
         return False
 
