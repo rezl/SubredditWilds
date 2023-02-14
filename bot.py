@@ -137,30 +137,48 @@ class Janitor:
             return
         conversations = subreddit_tracker.subreddit.modmail.conversations(state="new", sort="unread")
         for conversation in conversations:
-            # already read
-            if not conversation.last_unread:
-                break
-            # mod has already responded to the conversation
-            if len(conversation.authors) > 1 or conversation.last_mod_update:
-                continue
-            # message already contains a link to some reddit content
-            if Janitor.modmail_contains_link(subreddit_tracker.subreddit_name, conversation):
-                continue
-            message = f"Hi, thanks for messaging the r/{subreddit_tracker.subreddit_name} mods. " \
-                      "If this message is about removed content, " \
-                      "please respond with a link to the content in question.\n\n" \
-                      "This is an automated bot response. " \
-                      "An organic mod will respond to you soon, please allow 2 days as our team is across the world"
-            print(f"Responding to modmail {conversation.id}: {message}")
-            if Settings.is_dry_run:
-                print("\tDRY RUN!!!")
-                continue
-            conversation.reply(body=message, author_hidden=False)
+            if Janitor.should_respond(conversation, subreddit_tracker.subreddit):
+                message = f"Hi, thanks for messaging the r/{subreddit_tracker.subreddit_name} mods. " \
+                          "If this message is about removed content, " \
+                          "please respond with a link to the content in question.\n\n" \
+                          "This is an automated bot response. " \
+                          "An organic mod will respond to you soon, please allow 2 days as our team is across the world"
+                print(f"Responding to modmail {conversation.id}: {message}")
+                if Settings.is_dry_run:
+                    print("\tDRY RUN!!!")
+                    continue
+                conversation.reply(body=message, author_hidden=False)
 
     @staticmethod
-    def modmail_contains_link(subreddit_name, conversation):
+    def modmail_contains(conversation, keyword):
         for message in conversation.messages:
-            if f"r/{subreddit_name.lower()}/comments/" in message.body_markdown:
+            if keyword in message.body_markdown:
+                return True
+        return False
+
+    @staticmethod
+    def should_respond(conversation, subreddit):
+        # already read
+        if not conversation.last_unread:
+            return False
+        # mod has already responded to the conversation
+        if len(conversation.authors) > 1 or conversation.last_mod_update:
+            return False
+        # message already contains a link to some reddit content
+        if Janitor.modmail_contains(conversation, f"{subreddit.display_name_prefixed}/comments/"):
+            return False
+
+        # modmail asking about removed content, should respond asking for a link
+        if Janitor.modmail_contains(conversation, "remov") or Janitor.modmail_contains(conversation, "delet"):
+            return True
+        actions = subreddit.mod.notes.redditors(conversation.user)
+        for action in actions:
+            time_diff_secs = time.time() - action.created_at
+            # no action in the last week
+            if time_diff_secs > 7 * 24 * 3600:
+                return False
+            # person with recently removed content, should respond asking for a link
+            if action.action in ["removecomment", "removelink", "banuser"]:
                 return True
         return False
 
