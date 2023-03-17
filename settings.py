@@ -30,5 +30,5 @@ class CollapseSettings(Settings):
 class UFOsSettings(Settings):
     subreddit_wilds = None
     subreddit_removals = 'ufosremovals'
-    discord_removals_server = None
-    discord_removals_channel = None
+    discord_removals_server = 'UFO Moderators'
+    discord_removals_channel = 'cm-post-removals'
