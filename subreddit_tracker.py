@@ -20,8 +20,10 @@ class SubredditTracker:
 
         self.check_modmail = check_modmail
 
-        # initialize with the last submission time in wilds
-        self.time_last_checked = next(subreddit_wilds.new()).created_utc if subreddit_wilds else 0
+        # detect last bot action in preference: wilds last post > removals last post > none
+        self.time_last_checked = next(subreddit_wilds.new()).created_utc if subreddit_wilds else \
+            next(subreddit_removals.new()).created_utc if subreddit_removals \
+            else 0
         self.comment_mods_last_check = datetime.utcfromtimestamp(0)
         self.cached_comment_mods = self.get_comment_mods()
 
