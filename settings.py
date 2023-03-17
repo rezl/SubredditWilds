@@ -8,7 +8,7 @@ class Settings:
     # comment mods are mods with, and only with, these permissions
     comment_mod_permissions = ["posts", "mail", "wiki"]
     # comment mods who should not have their posts checked
-    comment_mod_whitelist = ["StatementBot"]
+    comment_mod_whitelist = ["StatementBot", "CollapseBot"]
 
     subreddit_wilds = None
     subreddit_removals = None
@@ -29,6 +29,6 @@ class CollapseSettings(Settings):
 
 class UFOsSettings(Settings):
     subreddit_wilds = None
-    subreddit_removals = None
+    subreddit_removals = 'ufosremovals'
     discord_removals_server = None
     discord_removals_channel = None
