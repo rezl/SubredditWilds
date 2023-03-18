@@ -1,13 +1,12 @@
-import asyncio
 import traceback
 import typing
 from threading import Thread
 
 import config
-from discord.ext import commands
-import discord
 import os
 import praw
+
+from discord_client import DiscordClient
 from settings import *
 import time
 
@@ -134,38 +133,6 @@ def should_respond(conversation, subreddit):
         if action.action in ["removecomment", "removelink", "banuser"]:
             return True
     return False
-
-
-class DiscordClient(commands.Bot):
-    def __init__(self, error_guild_name, error_guild_channel):
-        super().__init__('!', intents=discord.Intents.all())
-        self.error_guild_name = error_guild_name
-        self.error_guild_channel = error_guild_channel
-        self.error_guild = None
-        self.error_channel = None
-        self.is_ready = False
-
-    async def on_ready(self):
-        print(f'{self.user} has connected to Discord!')
-        self.error_guild = discord.utils.get(self.guilds, name=self.error_guild_name)
-        self.error_channel = discord.utils.get(self.error_guild.channels, name=self.error_guild_channel)
-        self.is_ready = True
-        guilds_msg = "\n".join([f"\t{guild.name}" for guild in self.guilds])
-        startup_message = f"{self.user} is in the following guilds:\n" \
-                          f"{guilds_msg}"
-        print(startup_message)
-
-    def send_error_msg(self, message):
-        full_message = f"Collapsewilds script has had an exception. This can normally be ignored, " \
-                       f"but if it's occurring frequently, may indicate a script error.\n{message}"
-        if self.error_channel:
-            asyncio.run_coroutine_threadsafe(self.error_channel.send(full_message), self.loop)
-
-    def send_msg(self, guild_name, channel_name, message):
-        guild = discord.utils.get(self.guilds, name=guild_name)
-        channel = discord.utils.get(guild.channels, name=channel_name)
-        if channel:
-            asyncio.run_coroutine_threadsafe(channel.send(message), self.loop)
 
 
 def create_mod_actions_thread(client_id, client_secret, bot_username, bot_password,
