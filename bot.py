@@ -1,6 +1,7 @@
 import asyncio
 import calendar
 import traceback
+import typing
 from threading import Thread
 
 import config
@@ -194,48 +195,67 @@ def run_forever():
     while not client.is_ready:
         time.sleep(1)
 
-    while True:
-        try:
-            reddit = praw.Reddit(
-                client_id=client_id,
-                client_secret=client_secret,
-                user_agent="flyio:com.collapse.collapsewilds",
-                redirect_uri="http://localhost:8080",  # unused for script applications
-                username=bot_username,
-                password=bot_password
-            )
-            janitor = Janitor(client, reddit)
+    @client.command(name="ping", description="lol")
+    async def ping(ctx):
+        dry_run = "I'm currently running in Dry Run mode" if settings.Settings.is_dry_run else ""
+        await ctx.channel.send(dry_run)
 
-            subreddits = list()
-            for subreddit_name in subreddit_names:
-                settings = get_subreddit_settings(subreddit_name)
-                subreddit_wilds = reddit.subreddit(settings.subreddit_wilds) \
-                    if settings.subreddit_wilds else None
-                subreddit_removals = reddit.subreddit(settings.subreddit_removals) \
-                    if settings.subreddit_removals else None
-                subreddit_tracker = SubredditTracker(reddit.subreddit(subreddit_name),
-                                                     subreddit_wilds,
-                                                     subreddit_removals,
-                                                     settings.comment_mod_permissions,
-                                                     settings.comment_mod_whitelist,
-                                                     settings.discord_removals_server,
-                                                     settings.discord_removals_channel,
-                                                     settings.check_modmail)
-                subreddits.append(subreddit_tracker)
-                print(f"Created {subreddit_name} subreddit with {type(settings).__name__} settings")
+    @client.command(name="set_dry_run", brief="Set whether bot can make permanent reddit actions (0/1)",
+                    description="Change whether this bot can make reddit actions (usernotes, comments). "
+                                "When in dry_run, the bot will not make usernotes or reddit comments, "
+                                "however the full workflow otherwise is available on discord\n"
+                                "Include: \n"
+                                "  * 0 (not in dry run, makes actions)\n"
+                                "  * 1 (dry run, no reddit actions)",
+                    usage=".set_dry_run 1")
+    async def set_dry_run(ctx, dry_run: typing.Literal[0, 1] = 1):
+        settings.Settings.is_dry_run = dry_run
+        if settings.Settings.is_dry_run:
+            await ctx.channel.send(f"I am now running in dry run mode")
+        else:
+            await ctx.channel.send(f"I am now NOT running in dry run mode")
 
-            while True:
-                for subreddit in subreddits:
-                    print("____________________")
-                    print(f"Checking Subreddit: {subreddit.subreddit_name}")
-                    janitor.handle_posts(subreddit)
-                    janitor.check_modmail(subreddit)
-                time.sleep(Settings.post_check_frequency_mins * 60)
-        except Exception as e:
-            message = f"Exception in main processing: {e}\n```{traceback.format_exc()}```"
-            client.send_error_msg(message)
-            print(message)
+    try:
+        reddit = praw.Reddit(
+            client_id=client_id,
+            client_secret=client_secret,
+            user_agent="flyio:com.collapse.collapsewilds",
+            redirect_uri="http://localhost:8080",  # unused for script applications
+            username=bot_username,
+            password=bot_password
+        )
+        janitor = Janitor(client, reddit)
+
+        subreddits = list()
+        for subreddit_name in subreddit_names:
+            settings = get_subreddit_settings(subreddit_name)
+            subreddit_wilds = reddit.subreddit(settings.subreddit_wilds) \
+                if settings.subreddit_wilds else None
+            subreddit_removals = reddit.subreddit(settings.subreddit_removals) \
+                if settings.subreddit_removals else None
+            subreddit_tracker = SubredditTracker(reddit.subreddit(subreddit_name),
+                                                 subreddit_wilds,
+                                                 subreddit_removals,
+                                                 settings.comment_mod_permissions,
+                                                 settings.comment_mod_whitelist,
+                                                 settings.discord_removals_server,
+                                                 settings.discord_removals_channel,
+                                                 settings.check_modmail)
+            subreddits.append(subreddit_tracker)
+            print(f"Created {subreddit_name} subreddit with {type(settings).__name__} settings")
+
+        while True:
+            for subreddit in subreddits:
+                print("____________________")
+                print(f"Checking Subreddit: {subreddit.subreddit_name}")
+                janitor.handle_posts(subreddit)
+                janitor.check_modmail(subreddit)
             time.sleep(Settings.post_check_frequency_mins * 60)
+    except Exception as e:
+        message = f"Exception in main processing: {e}\n```{traceback.format_exc()}```"
+        client.send_error_msg(message)
+        print(message)
+        time.sleep(Settings.post_check_frequency_mins * 60)
 
 
 def get_subreddit_settings(subreddit_name):
