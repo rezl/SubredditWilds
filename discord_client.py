@@ -1,4 +1,6 @@
 import asyncio
+import typing
+
 import discord
 from discord.ext import commands
 
@@ -30,3 +32,24 @@ class DiscordClient(commands.Bot):
                        f"but if it's occurring frequently, may indicate a script error.\n{message}"
         if self.error_channel:
             asyncio.run_coroutine_threadsafe(self.error_channel.send(full_message), self.loop)
+
+    def add_commands(self):
+        @self.command(name="ping", description="lol")
+        async def ping(ctx):
+            dry_run = "I'm currently running in Dry Run mode" if Settings.is_dry_run else ""
+            await ctx.channel.send(dry_run)
+
+        @self.command(name="set_dry_run", brief="Set whether bot can make permanent reddit actions (0/1)",
+                      description="Change whether this bot can make reddit actions (usernotes, comments). "
+                                  "When in dry_run, the bot will not make usernotes or reddit comments, "
+                                  "however the full workflow otherwise is available on discord\n"
+                                  "Include: \n"
+                                  "  * 0 (not in dry run, makes actions)\n"
+                                  "  * 1 (dry run, no reddit actions)",
+                      usage=".set_dry_run 1")
+        async def set_dry_run(ctx, dry_run: typing.Literal[0, 1] = 1):
+            Settings.is_dry_run = dry_run
+            if Settings.is_dry_run:
+                await ctx.channel.send(f"I am now running in dry run mode")
+            else:
+                await ctx.channel.send(f"I am now NOT running in dry run mode")
