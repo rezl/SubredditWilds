@@ -1,11 +1,11 @@
+import calendar
 from datetime import datetime, timedelta
 
 
 class SubredditTracker:
     def __init__(self, subreddit, subreddit_wilds, subreddit_removals,
                  comment_mod_permissions, comment_mod_whitelist,
-                 discord_removals_server, discord_removals_channel,
-                 check_modmail):
+                 discord_removals_server, discord_removals_channel):
         # wilds, removals, and the discord fields may be None
         self.subreddit_name = subreddit.display_name
         self.subreddit = subreddit
@@ -18,12 +18,11 @@ class SubredditTracker:
         self.discord_removals_server = discord_removals_server
         self.discord_removals_channel = discord_removals_channel
 
-        self.check_modmail = check_modmail
-
-        # detect last bot action in preference: wilds last post > removals last post > none
+        # detect last bot action in preference: wilds last post > removals last post > now
+        # required as streams provide last 100 of stream on startup, ensure no duplication
         self.time_last_checked = next(subreddit_wilds.new()).created_utc if subreddit_wilds else \
             next(subreddit_removals.new()).created_utc if subreddit_removals \
-            else 0
+            else calendar.timegm(datetime.utcnow().utctimetuple())
         self.comment_mods_last_check = datetime.utcfromtimestamp(0)
         self.cached_comment_mods = self.get_comment_mods()
 
