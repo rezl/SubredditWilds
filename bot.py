@@ -193,7 +193,7 @@ def run_forever():
 
     try:
         for subreddit_name in subreddit_names:
-            settings = get_subreddit_settings(subreddit_name)
+            settings = SettingsFactory.get_settings(subreddit_name)
             print(f"Creating {subreddit_name} subreddit with {type(settings).__name__} settings")
 
             create_mod_actions_thread(client_id, client_secret, bot_username, bot_password,
