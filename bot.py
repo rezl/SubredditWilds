@@ -178,16 +178,16 @@ def run_forever():
     bot_username = os.environ.get("BOT_USERNAME", config.BOT_USERNAME)
     bot_password = os.environ.get("BOT_PASSWORD", config.BOT_PASSWORD)
     discord_token = os.environ.get("DISCORD_TOKEN", config.DISCORD_TOKEN)
-    error_guild_name = os.environ.get("DISCORD_ERROR_GUILD", config.DISCORD_ERROR_GUILD)
-    error_guild_channel = os.environ.get("DISCORD_ERROR_CHANNEL", config.DISCORD_ERROR_CHANNEL)
+    discord_error_guild_name = os.environ.get("DISCORD_ERROR_GUILD", config.DISCORD_ERROR_GUILD)
+    discord_error_channel_name = os.environ.get("DISCORD_ERROR_CHANNEL", config.DISCORD_ERROR_CHANNEL)
     subreddits_config = os.environ.get("SUBREDDITS", config.SUBREDDITS)
     subreddit_names = [subreddit.strip() for subreddit in subreddits_config.split(",")]
-
     print("CONFIG: subreddit_names=" + str(subreddit_names))
 
-    discord_client = DiscordClient(error_guild_name, error_guild_channel)
+    # discord stuff
+    discord_client = DiscordClient(discord_error_guild_name, discord_error_channel_name)
+    discord_client.add_commands()
     Thread(target=discord_client.run, args=(discord_token,)).start()
-
     while not discord_client.is_ready:
         time.sleep(1)
 
