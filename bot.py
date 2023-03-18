@@ -150,10 +150,10 @@ class DiscordClient(commands.Bot):
         self.error_guild = discord.utils.get(self.guilds, name=self.error_guild_name)
         self.error_channel = discord.utils.get(self.error_guild.channels, name=self.error_guild_channel)
         self.is_ready = True
-        print(
-            f'{self.user} is connected to the following guild:\n'
-            f'{self.error_guild.name}(id: {self.error_guild.id})'
-        )
+        guilds_msg = "\n".join([f"\t{guild.name}" for guild in self.guilds])
+        startup_message = f"{self.user} is in the following guilds:\n" \
+                          f"{guilds_msg}"
+        print(startup_message)
 
     def send_error_msg(self, message):
         full_message = f"Collapsewilds script has had an exception. This can normally be ignored, " \
