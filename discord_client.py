@@ -36,7 +36,8 @@ class DiscordClient(commands.Bot):
     def add_commands(self):
         @self.command(name="ping", description="lol")
         async def ping(ctx):
-            dry_run = "I'm currently running in Dry Run mode" if Settings.is_dry_run else ""
+            prefix = "DRY RUN" if Settings.is_dry_run else "DO REAL SHIT"
+            dry_run = f"I'm currently running in {prefix} mode"
             await ctx.channel.send(dry_run)
 
         @self.command(name="set_dry_run", brief="Set whether bot can make permanent reddit actions (0/1)",
