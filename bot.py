@@ -164,15 +164,7 @@ def should_respond(conversation, subreddit):
 
 def create_mod_actions_thread(client_id, client_secret, bot_username, bot_password,
                               discord_client, settings, subreddit_name):
-    reddit = praw.Reddit(
-        client_id=client_id,
-        client_secret=client_secret,
-        user_agent=f"flyio:com.subredditwilds.modactions.{subreddit_name}",
-        redirect_uri="http://localhost:8080",  # unused for script applications
-        username=bot_username,
-        password=bot_password
-    )
-
+    reddit = create_reddit(bot_password, bot_username, client_id, client_secret, subreddit_name, "modactions")
     subreddit_wilds = reddit.subreddit(settings.subreddit_wilds) if settings.subreddit_wilds else None
     subreddit_removals = reddit.subreddit(settings.subreddit_removals) if settings.subreddit_removals else None
     subreddit_tracker = SubredditTracker(reddit, reddit.subreddit(subreddit_name),
@@ -185,18 +177,21 @@ def create_mod_actions_thread(client_id, client_secret, bot_username, bot_passwo
 
 
 def create_modmail_thread(client_id, client_secret, bot_username, bot_password, discord_client, subreddit_name):
-    reddit = praw.Reddit(
+    reddit = create_reddit(bot_password, bot_username, client_id, client_secret, subreddit_name, "modmail")
+    subreddit = reddit.subreddit(subreddit_name)
+    Thread(target=handle_modmails, args=(discord_client, subreddit)).start()
+    print(f"Created {subreddit_name} modmail thead")
+
+
+def create_reddit(bot_password, bot_username, client_id, client_secret, subreddit_name, script_type):
+    return praw.Reddit(
         client_id=client_id,
         client_secret=client_secret,
-        user_agent=f"flyio:com.subredditwilds.modmail.{subreddit_name}",
+        user_agent=f"flyio:com.subredditwilds.{script_type}.{subreddit_name}",
         redirect_uri="http://localhost:8080",  # unused for script applications
         username=bot_username,
         password=bot_password
     )
-
-    subreddit = reddit.subreddit(subreddit_name)
-    Thread(target=handle_modmails, args=(discord_client, subreddit)).start()
-    print(f"Created {subreddit_name} modmail thead")
 
 
 def run_forever():
@@ -229,8 +224,6 @@ def run_forever():
             if settings.check_modmail:
                 create_modmail_thread(client_id, client_secret, bot_username, bot_password,
                                       discord_client, subreddit_name)
-
-            print(f"Created {subreddit_name} subreddit")
     except Exception as e:
         message = f"Exception in main processing: {e}\n```{traceback.format_exc()}```"
         discord_client.send_error_msg(message)
