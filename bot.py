@@ -1,6 +1,8 @@
 import traceback
 from threading import Thread
 
+from praw.exceptions import RedditAPIException
+
 import config
 import os
 import praw
@@ -11,6 +13,9 @@ import time
 
 from subreddit_tracker import SubredditTracker
 
+max_retries = 5
+retry_wait_time_secs = 30
+
 
 def get_id(fullname):
     split = fullname.split("_")
@@ -19,85 +24,97 @@ def get_id(fullname):
 
 def handle_mod_actions(discord_client, subreddit_tracker):
     for action in subreddit_tracker.subreddit.mod.stream.log(action="removelink"):
-        comment_mods = subreddit_tracker.get_comment_mods()
-        submission_id = get_id(action.target_fullname)
-        try:
-            if action.mod == "AutoModerator":
-                continue
-            if action.details == "confirm_spam":
-                continue
-            # this is required on startup to prevent re-actioning startup stream
-            if action.created_utc < subreddit_tracker.time_last_checked:
-                continue
-
-            submission = subreddit_tracker.reddit.submission(id=submission_id)
-            title_untruc = f"[{submission.score}] {submission.title}"
-            title = (title_untruc[:275] + '...') if len(title_untruc) > 275 else title_untruc
-            url = f"https://np.reddit.com{submission.permalink}"
-
-            wilds_sub = subreddit_tracker.subreddit_wilds
-            if wilds_sub:
-                print(f"Adding post to {wilds_sub}: {title}")
-                if Settings.is_dry_run:
-                    print("\tDRY RUN!!!")
+        for i in range(max_retries):
+            comment_mods = subreddit_tracker.get_comment_mods()
+            submission_id = get_id(action.target_fullname)
+            try:
+                if action.mod == "AutoModerator":
                     continue
-                else:
-                    wilds_sub.submit(title, url=url, send_replies=False)
-                    time.sleep(5)
+                if action.details == "confirm_spam":
+                    continue
+                # this is required on startup to prevent re-actioning startup stream
+                if action.created_utc < subreddit_tracker.time_last_checked:
+                    continue
 
-            # if post was removed by comment mod, also post to removals sub and discord
-            if action.mod.name in comment_mods:
-                removals_sub = subreddit_tracker.subreddit_removals
-                if removals_sub:
-                    print(f"Adding post to {removals_sub}: {submission.title}")
+                submission = subreddit_tracker.reddit.submission(id=submission_id)
+                title_untruc = f"[{submission.score}] {submission.title}"
+                title = (title_untruc[:275] + '...') if len(title_untruc) > 275 else title_untruc
+                url = f"https://np.reddit.com{submission.permalink}"
+
+                wilds_sub = subreddit_tracker.subreddit_wilds
+                if wilds_sub:
+                    print(f"Adding post to {wilds_sub}: {title}")
                     if Settings.is_dry_run:
                         print("\tDRY RUN!!!")
                         continue
                     else:
-                        removals_sub.submit(title, url=url, send_replies=False)
+                        wilds_sub.submit(title, url=url, send_replies=False)
                         time.sleep(5)
-                removals_discord = subreddit_tracker.discord_removals_server
-                removals_channel = subreddit_tracker.discord_removals_channel
-                if removals_discord and removals_channel:
-                    print(f"Adding post to {removals_discord}/{removals_channel}: {submission.title}")
-                    if Settings.is_dry_run:
-                        print("\tDRY RUN!!!")
-                        continue
-                    else:
-                        message = f"A comment moderator has removed a post. Please follow-up with this mod.\n" \
-                                  f"Comment Mod: {action.mod.name}\n" \
-                                  f"Post: {url}\n" \
-                                  f"Title: {title}"
-                        print(message)
-                        discord_client.send_msg(subreddit_tracker.discord_removals_server,
-                                                subreddit_tracker.discord_removals_channel,
-                                                message)
 
-        except Exception as e:
-            message = f"Exception when handling action {submission_id}: {e}\n```{traceback.format_exc()}```"
-            discord_client.send_error_msg(message)
-            print(message)
+                # if post was removed by comment mod, also post to removals sub and discord
+                if action.mod.name in comment_mods:
+                    removals_sub = subreddit_tracker.subreddit_removals
+                    if removals_sub:
+                        print(f"Adding post to {removals_sub}: {submission.title}")
+                        if Settings.is_dry_run:
+                            print("\tDRY RUN!!!")
+                            continue
+                        else:
+                            removals_sub.submit(title, url=url, send_replies=False)
+                            time.sleep(5)
+                    removals_discord = subreddit_tracker.discord_removals_server
+                    removals_channel = subreddit_tracker.discord_removals_channel
+                    if removals_discord and removals_channel:
+                        print(f"Adding post to {removals_discord}/{removals_channel}: {submission.title}")
+                        if Settings.is_dry_run:
+                            print("\tDRY RUN!!!")
+                            continue
+                        else:
+                            message = f"A comment moderator has removed a post. Please follow-up with this mod.\n" \
+                                      f"Comment Mod: {action.mod.name}\n" \
+                                      f"Post: {url}\n" \
+                                      f"Title: {title}"
+                            print(message)
+                            discord_client.send_msg(subreddit_tracker.discord_removals_server,
+                                                    subreddit_tracker.discord_removals_channel,
+                                                    message)
+            except RedditAPIException as e:
+                message = f"Exception when handling action {submission_id}: {e}\n```{traceback.format_exc()}```"
+                discord_client.send_error_msg(message)
+                print(message)
+                time.sleep(retry_wait_time_secs)
+            except Exception as e:
+                message = f"Exception when handling action {submission_id}: {e}\n```{traceback.format_exc()}```"
+                discord_client.send_error_msg(message)
+                print(message)
 
 
 def handle_modmail(discord_client, subreddit):
     for conversation in subreddit.mod.stream.modmail_conversations(state="new", sort="unread"):
-        try:
-            if should_respond(conversation, subreddit):
-                message = f"Hi, thanks for messaging the r/{subreddit.display_name} mods. " \
-                          "If this message is about removed content, " \
-                          "please respond with a link to the content in question.\n\n" \
-                          "This is an automated bot response. " \
-                          "An organic mod will respond to you soon, please allow 2 days as our team is across the world"
-                print(f"Responding to modmail {conversation.id}: {message}")
-                if Settings.is_dry_run:
-                    print("\tDRY RUN!!!")
-                    continue
-                conversation.reply(body=message, author_hidden=False)
-                conversation.read()
-        except Exception as e:
-            message = f"Exception when handling modmail {conversation.id}: {e}\n```{traceback.format_exc()}```"
-            discord_client.send_error_msg(message)
-            print(message)
+        for i in range(max_retries):
+            try:
+                if should_respond(conversation, subreddit):
+                    message = f"Hi, thanks for messaging the r/{subreddit.display_name} mods. " \
+                              "If this message is about removed content, " \
+                              "please respond with a link to the content in question.\n\n" \
+                              "This is an automated bot response. " \
+                              "An organic mod will respond to you soon, " \
+                              "please allow 2 days as our team is across the world"
+                    print(f"Responding to modmail {conversation.id}: {message}")
+                    if Settings.is_dry_run:
+                        print("\tDRY RUN!!!")
+                        continue
+                    conversation.reply(body=message, author_hidden=False)
+                    conversation.read()
+            except RedditAPIException as e:
+                message = f"API Exception when handling modmail {conversation.id}: {e}\n```{traceback.format_exc()}```"
+                discord_client.send_error_msg(message)
+                print(message)
+                time.sleep(retry_wait_time_secs)
+            except Exception as e:
+                message = f"Exception when handling modmail {conversation.id}: {e}\n```{traceback.format_exc()}```"
+                discord_client.send_error_msg(message)
+                print(message)
 
 
 def modmail_contains(conversation, keyword):
