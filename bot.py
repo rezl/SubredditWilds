@@ -209,15 +209,5 @@ def run_forever():
         print(message)
 
 
-def get_subreddit_settings(subreddit_name):
-    # use <SubredditName>Settings if exists, default to Settings
-    settings_name = subreddit_name + "Settings"
-    try:
-        constructor = globals()[settings_name]
-        return constructor()
-    except KeyError:
-        return Settings()
-
-
 if __name__ == "__main__":
     run_forever()
