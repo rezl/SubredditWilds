@@ -3,11 +3,12 @@ from datetime import datetime, timedelta
 
 
 class SubredditTracker:
-    def __init__(self, subreddit, subreddit_wilds, subreddit_removals,
+    def __init__(self, reddit, subreddit, subreddit_wilds, subreddit_removals,
                  comment_mod_permissions, comment_mod_whitelist,
                  discord_removals_server, discord_removals_channel):
         # wilds, removals, and the discord fields may be None
         self.subreddit_name = subreddit.display_name
+        self.reddit = reddit
         self.subreddit = subreddit
         self.subreddit_wilds = subreddit_wilds
         self.subreddit_removals = subreddit_removals
