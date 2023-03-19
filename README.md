@@ -1,7 +1,43 @@
-# Overview
-collapsebot is the transparency bot for [/r/collapse](https://www.reddit.com/r/collapse) and powers [/r/collapse_wilds](https://www.reddit.com/r/collapse_wilds) and [/r/collapseremovals](https://www.reddit.com/r/collapseremovals).  It detects post removals from the reddit moderator log and posts them to the wilds sub, and also detects removals by comment moderators and posts them to the removals sub.
+## Subreddit Wilds Bot
+This bot automates various moderation tasks in Reddit. Here are the main features:
+
+* Adding posts to a wilds subreddit
+  * Whenever a post is removed, the bot will crosspost to a specified wilds subreddit
+  * This is an optional feature and can be enabled by setting the `subreddit_wilds` property in the Settings class
+* Posting to a removals subreddit or Discord channel
+  * If a comment moderator removes a post, the bot will crosspost to a specified subreddit and/or message Discord channel
+  * This is an optional feature and can be enabled by setting the `subreddit_removals` and `discord_removals` properties in the Settings class
+* Handling modmail
+  * The bot can automatically respond to modmail by asking the sender to provide a link to the removed content
+  * This is an optional feature and can be enabled by setting the `check_modmail` property in the Settings class
+      Installation
+      Clone the repository: git clone https://github.com/username/repo.git.
+      Install the required packages: pip install -r requirements.txt.
+      Update the config.py file with your Reddit and Discord API credentials.
+      Set the necessary values in the Settings class in settings.py.
+      Run the bot: python main.py.
+      Settings
+      Here are the available settings in the Settings class:
+
+
+## Usage
+Run the bot with the python main.py command. The bot will start monitoring the specified subreddit and perform the configured actions when necessary.
+
+
+## Settings
+* `is_dry_run`: Set to True to prevent any bot actions (report, remove, comments). This is useful for testing purposes.
+* `post_check_frequency_mins`: The frequency (in minutes) at which the bot should check for new posts.
+* `check_modmail`: Set to True to enable the bot to respond to modmail. (optional)
+* `comment_mod_permissions`: The permissions that comment mods should have. Comment mods are mods that should only remove comments and not posts. (optional)
+* `comment_mod_whitelist`: A whitelist of comment mods who should not have their posts checked. (optional)
+* `subreddit_wilds`: The subreddit where new posts should be added. (optional)
+* `subreddit_removals`: The subreddit where removed posts should be posted. (optional)
+* `discord_removals_server`: The Discord server where the bot should post removed posts. (optional)
+* `discord_removals_channel`: The Discord channel where the bot should post removed posts. (optional)
+
 
 # Requirements
+- code: https://github.com/rezl/SubredditWilds.git
 - Python 3.10+
 - praw 6.3.1+
 
@@ -12,11 +48,11 @@ collapsebot is the transparency bot for [/r/collapse](https://www.reddit.com/r/c
 
 2. [Go here and install Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) if you don’t have it already.
 
-3. [Assuming you're reading this on the repo page](https://github.com/rezl/SubmissionStatementBot), select ‘fork’ to create a copy of it to your Github account. 
+3. [Assuming you're reading this on the repo page](https://github.com/rezl/SubredditWilds), select ‘fork’ to create a copy of it to your Github account. 
 
-4. From your new repo, select **Code** and then under **Clone** copy the HTTPS URL (e.g. https://github.com/rezl/SubmissionStatementBot.git) to download a local copy
+4. From your new repo, select **Code** and then under **Clone** copy the HTTPS URL (e.g. https://github.com/rezl/SubredditWilds.git) to download a local copy
 
-![img.png](pictures/img.png)
+   ![img.png](pictures/img.png)
 
 5. Navigate to a folder you want a local copy of the repo to live, and clone the Github repo to your local PC:
    1. It's up to you where to put the repo - recommended in a folder like C:\<username>\Documents\ or a new folder, C:\<username>\Documents\Programming
@@ -60,23 +96,24 @@ collapsebot is the transparency bot for [/r/collapse](https://www.reddit.com/r/c
 
 3. Change settings how you'd like (settings.py)
 
-5. Save the file.
+4. Save the file.
 
-6. If not configured in Fly.io (Setup Fly step 9), Open **config.py** and fill in these fields with your info. Make sure not to remove the apostrophes surrounding them.
-```
-BOT_USERNAME = 'ReallyCoolBot'
-BOT_PASSWORD = 'password'
-CLIENT_ID = 'asdfasdfasdf'
-CLIENT_SECRET = 'asdfasdfasdf'
-SOURCE_SUBREDDIT = 'SomeSubreddit'
-TARGET_SUBREDDIT_WILDS = 'SomeOtherSubreddit'
-TARGET_SUBREDDIT_REMOVALS = 'YetAnotherSubreddit'
-```
-When config is not provided in Fly, the bot will attempt to use config from this file.
+5. If not configured in Fly.io (Setup Fly step 9), Open **config.py** and fill in these fields with your info. Make sure not to remove the apostrophes surrounding them.
+   ```
+   BOT_USERNAME = 'ReallyCoolBot'
+   BOT_PASSWORD = 'password'
+   CLIENT_ID = 'asdfasdfasdf'
+   CLIENT_SECRET = 'asdfasdfasdf'
+   DISCORD_TOKEN = 'asdfasdfasdf'
+   DISCORD_ERROR_GUILD = 'asdfasdfasdf'
+   DISCORD_ERROR_CHANNEL = 'asdfasdfasdf'
+   SUBREDDITS = 'SomeSubreddit,AnotherSubreddit'
+   ```
+   When config is not provided in Fly, the bot will attempt to use config from this file.
 
-9. Save the file.
+6. Save the file.
 
-10. Optionally run the bot locally - settings.py's "is_dry_run" can be set to "True" to run the bot without it making any changes (report, remove, reply to posts)
+7. Optionally run the bot locally - settings.py's "is_dry_run" can be set to "True" to run the bot without it making any changes (report, remove, reply to posts)
 
 
 ## Setup Fly.io
@@ -114,15 +151,16 @@ When config is not provided in Fly, the bot will attempt to use config from this
    2. Reference: https://fly.io/docs/reference/secrets/#setting-secrets
    3. `flyctl secrets set BOT_USERNAME=BotRedditUsername`
    4. Add your each secret individually with above command (after set, they are encrypted and not readable):
-```
-BOT_USERNAME = 'ReallyCoolBot'
-BOT_PASSWORD = 'password'
-CLIENT_ID = 'asdfasdfasdf'
-CLIENT_SECRET = 'asdfasdfasdf'
-SOURCE_SUBREDDIT = 'SomeSubreddit'
-TARGET_SUBREDDIT_WILDS = 'SomeOtherSubreddit'
-TARGET_SUBREDDIT_REMOVALS = 'YetAnotherSubreddit'
-``` 
+   ```
+   BOT_USERNAME = 'ReallyCoolBot'
+   BOT_PASSWORD = 'password'
+   CLIENT_ID = 'asdfasdfasdf'
+   CLIENT_SECRET = 'asdfasdfasdf'
+   DISCORD_TOKEN = 'asdfasdfasdf'
+   DISCORD_ERROR_GUILD = 'asdfasdfasdf'
+   DISCORD_ERROR_CHANNEL = 'asdfasdfasdf'
+   SUBREDDITS = 'SomeSubreddit,AnotherSubreddit'
+   ```
 
 10. Deploy your new app to fly.io with:
     1. https://fly.io/docs/hands-on/launch-app/ > "Next: Deploying Your App"
