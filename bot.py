@@ -229,6 +229,10 @@ def run_forever():
         discord_client.send_error_msg(message)
         print(message)
 
+    # this is required as otherwise discord fails when main thread is done
+    while True:
+        time.sleep(5)
+
 
 if __name__ == "__main__":
     run_forever()
