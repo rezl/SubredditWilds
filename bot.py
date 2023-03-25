@@ -8,6 +8,7 @@ import os
 import praw
 
 from discord_client import DiscordClient
+from resilient_thread import ResilientThread
 from settings import *
 import time
 
@@ -92,6 +93,7 @@ def handle_mod_actions(discord_client, subreddit_tracker):
                           f" {e}\n```{traceback.format_exc()}```"
                 discord_client.send_error_msg(message)
                 print(message)
+                break
 
 
 def handle_modmail(subreddit, conversation):
@@ -126,6 +128,7 @@ def handle_modmails(discord_client, subreddit):
                 message = f"Exception when handling modmail {conversation.id}: {e}\n```{traceback.format_exc()}```"
                 discord_client.send_error_msg(message)
                 print(message)
+                break
 
 
 def modmail_contains(conversation, keyword):
@@ -172,15 +175,20 @@ def create_mod_actions_thread(client_id, client_secret, bot_username, bot_passwo
                                          settings.comment_mod_permissions, settings.comment_mod_whitelist,
                                          settings.discord_removals_server, settings.discord_removals_channel)
 
-    Thread(target=handle_mod_actions, args=(discord_client, subreddit_tracker)).start()
-    print(f"Created {subreddit_name} modactions thead")
+    name = f"{subreddit_name}-ModActions"
+    thread = ResilientThread(discord_client, name, target=handle_mod_actions, args=(discord_client, subreddit_tracker))
+    thread.start()
+    print(f"Created {name} thread")
 
 
 def create_modmail_thread(client_id, client_secret, bot_username, bot_password, discord_client, subreddit_name):
     reddit = create_reddit(bot_password, bot_username, client_id, client_secret, subreddit_name, "modmail")
     subreddit = reddit.subreddit(subreddit_name)
-    Thread(target=handle_modmails, args=(discord_client, subreddit)).start()
-    print(f"Created {subreddit_name} modmail thead")
+
+    name = f"{subreddit_name}-Modmail"
+    thread = ResilientThread(discord_client, name, target=handle_modmails, args=(discord_client, subreddit))
+    thread.start()
+    print(f"Created {name} thread")
 
 
 def create_reddit(bot_password, bot_username, client_id, client_secret, subreddit_name, script_type):
