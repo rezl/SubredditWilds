@@ -33,6 +33,16 @@ class DiscordClient(commands.Bot):
         if self.error_channel:
             asyncio.run_coroutine_threadsafe(self.error_channel.send(full_message), self.loop)
 
+    def send_msg(self, guild_name, channel_name, message):
+        print(f"Adding post to {guild_name}/{channel_name}: {message}")
+        if Settings.is_dry_run:
+            print("\tDRY RUN!!!")
+            return
+        guild = discord.utils.get(self.guilds, name=guild_name)
+        channel = discord.utils.get(guild.channels, name=channel_name)
+        if channel:
+            asyncio.run_coroutine_threadsafe(channel.send(message), self.loop)
+
     def add_commands(self):
         @self.command(name="ping", description="lol")
         async def ping(ctx):
