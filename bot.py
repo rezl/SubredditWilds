@@ -8,6 +8,7 @@ import os
 import praw
 
 from discord_client import DiscordClient
+from reddit_actions_handler import RedditActionsHandler
 from resilient_thread import ResilientThread
 from settings import *
 import time
@@ -23,7 +24,7 @@ def get_id(fullname):
     return split[1] if len(split) > 0 else split[0]
 
 
-def handle_mod_action(subreddit_tracker, discord_client, action):
+def handle_mod_action(subreddit_tracker, discord_client, action, reddit_handler):
     comment_mods = subreddit_tracker.get_comment_mods()
     submission_id = get_id(action.target_fullname)
     if action.mod == "AutoModerator":
@@ -41,46 +42,31 @@ def handle_mod_action(subreddit_tracker, discord_client, action):
 
     wilds_sub = subreddit_tracker.subreddit_wilds
     if wilds_sub:
-        print(f"Adding post to {wilds_sub}: {title}")
-        if Settings.is_dry_run:
-            print("\tDRY RUN!!!")
-        else:
-            wilds_sub.submit(title, url=url, send_replies=False)
-            time.sleep(5)
+        reddit_handler.add_post(wilds_sub, url, title)
 
     # if post was removed by comment mod, also post to removals sub and discord
     if action.mod.name in comment_mods:
         removals_sub = subreddit_tracker.subreddit_removals
         if removals_sub:
-            print(f"Adding post to {removals_sub}: {submission.title}")
-            if Settings.is_dry_run:
-                print("\tDRY RUN!!!")
-            else:
-                removals_sub.submit(title, url=url, send_replies=False)
-                time.sleep(5)
+            reddit_handler.add_post(removals_sub, url, title)
         removals_discord = subreddit_tracker.discord_removals_server
         removals_channel = subreddit_tracker.discord_removals_channel
         if removals_discord and removals_channel:
-            print(f"Adding post to {removals_discord}/{removals_channel}: {submission.title}")
-            if Settings.is_dry_run:
-                print("\tDRY RUN!!!")
-            else:
-                message = f"A comment moderator has removed a post. Please follow-up with this mod.\n" \
-                          f"Comment Mod: {action.mod.name}\n" \
-                          f"Post: {url}\n" \
-                          f"Title: {title}"
-                print(message)
-                discord_client.send_msg(subreddit_tracker.discord_removals_server,
-                                        subreddit_tracker.discord_removals_channel,
-                                        message)
+            message = f"A comment moderator has removed a post. Please follow-up with this mod.\n" \
+                      f"Comment Mod: {action.mod.name}\n" \
+                      f"Post: {url}\n" \
+                      f"Title: {title}"
+            discord_client.send_msg(subreddit_tracker.discord_removals_server,
+                                    subreddit_tracker.discord_removals_channel,
+                                    message)
 
 
-def handle_mod_actions(discord_client, subreddit_tracker):
+def handle_mod_actions(discord_client, subreddit_tracker, reddit_handler):
     for action in subreddit_tracker.subreddit.mod.stream.log(action="removelink"):
         # retry if exceptions thrown
         for i in range(max_retries):
             try:
-                handle_mod_action(subreddit_tracker, discord_client, action)
+                handle_mod_action(subreddit_tracker, discord_client, action, reddit_handler)
                 break
             except RedditAPIException as e:
                 message = f"Exception when handling action {get_id(action.target_fullname)}:" \
@@ -96,28 +82,19 @@ def handle_mod_actions(discord_client, subreddit_tracker):
                 break
 
 
-def handle_modmail(subreddit, conversation):
-    if should_respond(conversation, subreddit):
-        message = f"Hi, thanks for messaging the r/{subreddit.display_name} mods. " \
-                  "If this message is about removed content, " \
-                  "please respond with a link to the content in question.\n\n" \
-                  "This is an automated bot response. " \
-                  "An organic mod will respond to you soon, " \
-                  "please allow 2 days as our team is across the world"
-        print(f"Responding to modmail {conversation.id}: {message}")
-        if Settings.is_dry_run:
-            print("\tDRY RUN!!!")
-        else:
-            conversation.reply(body=message, author_hidden=False)
-            conversation.read()
-
-
-def handle_modmails(discord_client, subreddit):
+def handle_modmail(discord_client, subreddit, reddit_handler):
     for conversation in subreddit.mod.stream.modmail_conversations(state="new", sort="unread"):
         for i in range(max_retries):
             # retry if exceptions thrown
             try:
-                handle_modmail(subreddit, conversation)
+                if should_respond(conversation, subreddit):
+                    message = f"Hi, thanks for messaging the r/{subreddit.display_name} mods. " \
+                              "If this message is about removed content, " \
+                              "please respond with a link to the content in question.\n\n" \
+                              "This is an automated bot response. " \
+                              "An organic mod will respond to you soon, " \
+                              "please allow 2 days as our team is across the world"
+                    reddit_handler.reply_to_modmail(conversation, message)
                 break
             except RedditAPIException as e:
                 message = f"API Exception when handling modmail {conversation.id}: {e}\n```{traceback.format_exc()}```"
@@ -174,9 +151,11 @@ def create_mod_actions_thread(client_id, client_secret, bot_username, bot_passwo
                                          subreddit_wilds, subreddit_removals,
                                          settings.comment_mod_permissions, settings.comment_mod_whitelist,
                                          settings.discord_removals_server, settings.discord_removals_channel)
+    reddit_handler = RedditActionsHandler(discord_client)
 
     name = f"{subreddit_name}-ModActions"
-    thread = ResilientThread(discord_client, name, target=handle_mod_actions, args=(discord_client, subreddit_tracker))
+    thread = ResilientThread(discord_client, name,
+                             target=handle_mod_actions, args=(discord_client, subreddit_tracker, reddit_handler))
     thread.start()
     print(f"Created {name} thread")
 
@@ -184,9 +163,11 @@ def create_mod_actions_thread(client_id, client_secret, bot_username, bot_passwo
 def create_modmail_thread(client_id, client_secret, bot_username, bot_password, discord_client, subreddit_name):
     reddit = create_reddit(bot_password, bot_username, client_id, client_secret, subreddit_name, "modmail")
     subreddit = reddit.subreddit(subreddit_name)
+    reddit_handler = RedditActionsHandler(discord_client)
 
     name = f"{subreddit_name}-Modmail"
-    thread = ResilientThread(discord_client, name, target=handle_modmails, args=(discord_client, subreddit))
+    thread = ResilientThread(discord_client, name,
+                             target=handle_modmail, args=(discord_client, subreddit, reddit_handler))
     thread.start()
     print(f"Created {name} thread")
 
