@@ -132,6 +132,8 @@ def should_respond(conversation, subreddit):
         return True
     actions = subreddit.mod.notes.redditors(conversation.user)
     for action in actions:
+        if action.operator == "AutoModerator":
+            continue
         time_diff_secs = time.time() - action.created_at
         # no action in the last week
         if time_diff_secs > 7 * 24 * 3600:
