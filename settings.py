@@ -18,6 +18,9 @@ class Settings:
     discord_removals_server = None
     discord_removals_channel = None
 
+    google_sheet_id = None
+    google_sheet_name = None
+
 
 class CollapseSettings(Settings):
     check_modmail = True
@@ -26,6 +29,9 @@ class CollapseSettings(Settings):
     subreddit_removals = 'collapseremovals'
     discord_removals_server = 'Collapse Moderators'
     discord_removals_channel = 'fm-general'
+
+    google_sheet_id = '1cppV69sdHKbZG_65Z2JnDkjb7vxcC_238gFpgCqSoIU'
+    google_sheet_name = 'Mod Actions'
 
 
 class UFOsSettings(Settings):

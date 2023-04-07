@@ -1,4 +1,5 @@
 import traceback
+from datetime import datetime
 from threading import Thread
 
 from praw.exceptions import RedditAPIException
@@ -8,6 +9,7 @@ import os
 import praw
 
 from discord_client import DiscordClient
+from google_sheets_recorder import GoogleSheetsRecorder
 from reddit_actions_handler import RedditActionsHandler
 from resilient_thread import ResilientThread
 from settings import *
@@ -24,7 +26,7 @@ def get_id(fullname):
     return split[1] if len(split) > 0 else split[0]
 
 
-def handle_mod_action(subreddit_tracker, discord_client, action, reddit_handler):
+def handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler):
     comment_mods = subreddit_tracker.get_comment_mods()
     submission_id = get_id(action.target_fullname)
     if action.mod == "AutoModerator":
@@ -61,12 +63,47 @@ def handle_mod_action(subreddit_tracker, discord_client, action, reddit_handler)
                                     message)
 
 
-def handle_mod_actions(discord_client, subreddit_tracker, reddit_handler):
+def handle_mod_removals(discord_client, subreddit_tracker, reddit_handler):
     for action in subreddit_tracker.subreddit.mod.stream.log(action="removelink"):
         # retry if exceptions thrown
         for i in range(max_retries):
             try:
-                handle_mod_action(subreddit_tracker, discord_client, action, reddit_handler)
+                handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler)
+                break
+            except RedditAPIException as e:
+                message = f"Exception when handling action {get_id(action.target_fullname)}:" \
+                          f" {e}\n```{traceback.format_exc()}```"
+                discord_client.send_error_msg(message)
+                print(message)
+                time.sleep(retry_wait_time_secs)
+            except Exception as e:
+                message = f"Exception when handling action {get_id(action.target_fullname)}:" \
+                          f" {e}\n```{traceback.format_exc()}```"
+                discord_client.send_error_msg(message)
+                print(message)
+                break
+
+
+def handle_mod_action(google_sheets_recorder, action):
+    if action.mod in ["AutoModerator", "StatementBot"]:
+        return
+    # this is required on startup to prevent re-actioning startup stream
+    if action.created_utc <= google_sheets_recorder.time_last_checked:
+        return
+
+    formatted_datetime = datetime.fromtimestamp(action.created_utc).strftime(GoogleSheetsRecorder.DATE_CONVERSION)
+    link = action.target_permalink if hasattr(action, 'target_permalink') else ''
+    details = action.details if hasattr(action, 'details') else ''
+    value = [[formatted_datetime, action.mod.name, action.action, link, details]]
+    google_sheets_recorder.append_to_sheet(value)
+
+
+def handle_mod_actions(discord_client, google_sheets_recorder, subreddit):
+    for action in subreddit.mod.stream.log():
+        # retry if exceptions thrown
+        for i in range(max_retries):
+            try:
+                handle_mod_action(google_sheets_recorder, action)
                 break
             except RedditAPIException as e:
                 message = f"Exception when handling action {get_id(action.target_fullname)}:" \
@@ -150,6 +187,20 @@ def should_respond(conversation, subreddit):
 def create_mod_actions_thread(client_id, client_secret, bot_username, bot_password,
                               discord_client, settings, subreddit_name):
     reddit = create_reddit(bot_password, bot_username, client_id, client_secret, subreddit_name, "modactions")
+    subreddit = reddit.subreddit(subreddit_name)
+
+    recorder = GoogleSheetsRecorder(settings.google_sheet_id, settings.google_sheet_name)
+
+    name = f"{subreddit_name}-ModActions"
+    thread = ResilientThread(discord_client, name, target=handle_mod_actions,
+                             args=(discord_client, recorder, subreddit))
+    thread.start()
+    print(f"Created {name} thread")
+
+
+def create_mod_removals_thread(client_id, client_secret, bot_username, bot_password,
+                               discord_client, settings, subreddit_name):
+    reddit = create_reddit(bot_password, bot_username, client_id, client_secret, subreddit_name, "modremovals")
     subreddit_wilds = reddit.subreddit(settings.subreddit_wilds) if settings.subreddit_wilds else None
     subreddit_removals = reddit.subreddit(settings.subreddit_removals) if settings.subreddit_removals else None
     subreddit_tracker = SubredditTracker(reddit, reddit.subreddit(subreddit_name),
@@ -158,9 +209,9 @@ def create_mod_actions_thread(client_id, client_secret, bot_username, bot_passwo
                                          settings.discord_removals_server, settings.discord_removals_channel)
     reddit_handler = RedditActionsHandler(discord_client)
 
-    name = f"{subreddit_name}-ModActions"
+    name = f"{subreddit_name}-ModRemovals"
     thread = ResilientThread(discord_client, name,
-                             target=handle_mod_actions, args=(discord_client, subreddit_tracker, reddit_handler))
+                             target=handle_mod_removals, args=(discord_client, subreddit_tracker, reddit_handler))
     thread.start()
     print(f"Created {name} thread")
 
@@ -213,8 +264,13 @@ def run_forever():
             settings = SettingsFactory.get_settings(subreddit_name)
             print(f"Creating {subreddit_name} subreddit with {type(settings).__name__} settings")
 
-            create_mod_actions_thread(client_id, client_secret, bot_username, bot_password,
-                                      discord_client, settings, subreddit_name)
+            create_mod_removals_thread(client_id, client_secret, bot_username, bot_password,
+                                       discord_client, settings, subreddit_name)
+
+            if settings.google_sheet_id and settings.google_sheet_name:
+                create_mod_actions_thread(client_id, client_secret, bot_username, bot_password,
+                                          discord_client, settings, subreddit_name)
+
             if settings.check_modmail:
                 create_modmail_thread(client_id, client_secret, bot_username, bot_password,
                                       discord_client, subreddit_name)
