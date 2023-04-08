@@ -63,7 +63,10 @@ class GoogleSheetsRecorder:
             return time.time()
 
     def append_to_sheet(self, values):
-        return
+        self.append_to_sheet_helper(values)
+        gc.collect()
+
+    def append_to_sheet_helper(self, values):
         if Settings.is_dry_run:
             print("\tDRY RUN!!!")
             return
