@@ -76,7 +76,7 @@ class GoogleSheetsRecorder:
                 self.creds.refresh(Request())
                 return self.creds
 
-        # first time initialization
+        # first time initialization - if env var set, assume this is a bot, otherwise authenticate user
         if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
             # bot credentials is stored as base64 string so it can be provided to fly as a secret
             credentials_base64 = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
