@@ -19,52 +19,55 @@ class GoogleSheetsRecorder:
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
     def __init__(self, sheet_id, sheet_name):
-        self.sheet_id = sheet_id
-        self.sheet_name = sheet_name
-        self.creds = None
-        self.creds = self.get_credentials()
-
-        try:
-            service = build('sheets', 'v4', credentials=self.creds)
-
-            sheet = service.spreadsheets()
-            first_column_range = f'{self.sheet_name}!A:A'
-            result = sheet.values().get(spreadsheetId=self.sheet_id, range=first_column_range).execute()
-
-            first_column_values = result.get('values', [])
-
-            formatted_datetime = first_column_values[len(first_column_values) - 1][0]
-            actual_datetime = datetime.fromisoformat(formatted_datetime.replace(' ', 'T'))
-            self.time_last_checked = actual_datetime.timestamp()
-        except (HttpError, ValueError) as err:
-            print(err)
-            print("Error during google sheets setup. Initiating with current time. Potentially missed mod actions.")
-            self.time_last_checked = time.time()
+        print("Not doing anything")
+        self.time_last_checked = 0
+        # self.sheet_id = sheet_id
+        # self.sheet_name = sheet_name
+        # self.creds = None
+        # self.creds = self.get_credentials()
+        #
+        # try:
+        #     service = build('sheets', 'v4', credentials=self.creds)
+        #
+        #     sheet = service.spreadsheets()
+        #     first_column_range = f'{self.sheet_name}!A:A'
+        #     result = sheet.values().get(spreadsheetId=self.sheet_id, range=first_column_range).execute()
+        #
+        #     first_column_values = result.get('values', [])
+        #
+        #     formatted_datetime = first_column_values[len(first_column_values) - 1][0]
+        #     actual_datetime = datetime.fromisoformat(formatted_datetime.replace(' ', 'T'))
+        #     self.time_last_checked = actual_datetime.timestamp()
+        # except (HttpError, ValueError) as err:
+        #     print(err)
+        #     print("Error during google sheets setup. Initiating with current time. Potentially missed mod actions.")
+        #     self.time_last_checked = time.time()
 
     def append_to_sheet(self, values):
-        if Settings.is_dry_run:
-            print("\tDRY RUN!!!")
-            return
-
-        creds = self.get_credentials()
-        service = build('sheets', 'v4', credentials=creds)
-        request_range = f'{self.sheet_name}!A:E'
-        request_body = {
-            'range': request_range,
-            'values': values,
-            'majorDimension': 'ROWS'
-        }
-        try:
-            result = service.spreadsheets().values().append(
-                spreadsheetId=self.sheet_id,
-                range=request_range,
-                valueInputOption='USER_ENTERED',
-                body=request_body).execute()
-            print(f'{result.get("updates").get("updatedCells")} cells appended.')
-        except HttpError as error:
-            print(f'The API returned an error: {error}')
-            # invalidate credentials just in case re-initing will fix things
-            self.creds = None
+        print("Still not doing anything")
+        # if Settings.is_dry_run:
+        #     print("\tDRY RUN!!!")
+        #     return
+        #
+        # creds = self.get_credentials()
+        # service = build('sheets', 'v4', credentials=creds)
+        # request_range = f'{self.sheet_name}!A:E'
+        # request_body = {
+        #     'range': request_range,
+        #     'values': values,
+        #     'majorDimension': 'ROWS'
+        # }
+        # try:
+        #     result = service.spreadsheets().values().append(
+        #         spreadsheetId=self.sheet_id,
+        #         range=request_range,
+        #         valueInputOption='USER_ENTERED',
+        #         body=request_body).execute()
+        #     print(f'{result.get("updates").get("updatedCells")} cells appended.')
+        # except HttpError as error:
+        #     print(f'The API returned an error: {error}')
+        #     # invalidate credentials just in case re-initing will fix things
+        #     self.creds = None
 
     def get_credentials(self):
         # if creds already exists, refresh if needed
