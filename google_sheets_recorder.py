@@ -17,7 +17,6 @@ from settings import Settings
 
 class GoogleSheetsRecorder:
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-    DATE_CONVERSION = '%Y-%m-%d %H:%M:%S'
 
     def __init__(self, sheet_id, sheet_name):
         self.sheet_id = sheet_id
@@ -35,7 +34,7 @@ class GoogleSheetsRecorder:
             first_column_values = result.get('values', [])
 
             formatted_datetime = first_column_values[len(first_column_values) - 1][0]
-            actual_datetime = datetime.strptime(formatted_datetime, GoogleSheetsRecorder.DATE_CONVERSION)
+            actual_datetime = datetime.fromisoformat(formatted_datetime.replace(' ', 'T'))
             self.time_last_checked = actual_datetime.timestamp()
         except (HttpError, ValueError) as err:
             print(err)

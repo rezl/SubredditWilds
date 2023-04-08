@@ -91,10 +91,11 @@ def handle_mod_action(google_sheets_recorder, action):
     if action.created_utc <= google_sheets_recorder.time_last_checked:
         return
 
-    formatted_datetime = datetime.fromtimestamp(action.created_utc).strftime(GoogleSheetsRecorder.DATE_CONVERSION)
+    dt_utc = datetime.utcfromtimestamp(action.created_utc)
+    formatted_dt = dt_utc.isoformat().replace('T', ' ')
     link = action.target_permalink if hasattr(action, 'target_permalink') else ''
     details = action.details if hasattr(action, 'details') else ''
-    value = [[formatted_datetime, action.mod.name, action.action, link, details]]
+    value = [[formatted_dt, action.mod.name, action.action, link, details]]
     google_sheets_recorder.append_to_sheet(value)
 
 
