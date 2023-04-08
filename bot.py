@@ -88,7 +88,7 @@ def handle_mod_action(google_sheets_recorder, action):
     if action.mod in ["AutoModerator", "StatementBot"]:
         return
     # this is required on startup to prevent re-actioning startup stream
-    if action.created_utc <= google_sheets_recorder.time_last_checked:
+    if action.created_utc <= google_sheets_recorder.last_timestamp:
         return
 
     dt_utc = datetime.utcfromtimestamp(action.created_utc)
@@ -107,13 +107,13 @@ def handle_mod_actions(discord_client, google_sheets_recorder, subreddit):
                 handle_mod_action(google_sheets_recorder, action)
                 break
             except RedditAPIException as e:
-                message = f"Exception when handling action {get_id(action.target_fullname)}:" \
+                message = f"Exception when handling action {str(action)}:" \
                           f" {e}\n```{traceback.format_exc()}```"
                 discord_client.send_error_msg(message)
                 print(message)
                 time.sleep(retry_wait_time_secs)
             except Exception as e:
-                message = f"Exception when handling action {get_id(action.target_fullname)}:" \
+                message = f"Exception when handling action {str(action)}:" \
                           f" {e}\n```{traceback.format_exc()}```"
                 discord_client.send_error_msg(message)
                 print(message)

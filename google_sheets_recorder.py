@@ -19,55 +19,71 @@ class GoogleSheetsRecorder:
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
     def __init__(self, sheet_id, sheet_name):
-        print("Not doing anything")
-        self.time_last_checked = 0
-        # self.sheet_id = sheet_id
-        # self.sheet_name = sheet_name
-        # self.creds = None
-        # self.creds = self.get_credentials()
-        #
-        # try:
-        #     service = build('sheets', 'v4', credentials=self.creds)
-        #
-        #     sheet = service.spreadsheets()
-        #     first_column_range = f'{self.sheet_name}!A:A'
-        #     result = sheet.values().get(spreadsheetId=self.sheet_id, range=first_column_range).execute()
-        #
-        #     first_column_values = result.get('values', [])
-        #
-        #     formatted_datetime = first_column_values[len(first_column_values) - 1][0]
-        #     actual_datetime = datetime.fromisoformat(formatted_datetime.replace(' ', 'T'))
-        #     self.time_last_checked = actual_datetime.timestamp()
-        # except (HttpError, ValueError) as err:
-        #     print(err)
-        #     print("Error during google sheets setup. Initiating with current time. Potentially missed mod actions.")
-        #     self.time_last_checked = time.time()
+        self.sheet_id = sheet_id
+        self.sheet_name = sheet_name
+        self.creds = None
+        self.creds = self.get_credentials()
+        self.last_timestamp = self.find_last_timestamp()
+
+    def find_last_timestamp(self):
+        try:
+            service = build('sheets', 'v4', credentials=self.creds)
+
+            sheet_metadatas = service.spreadsheets().get(spreadsheetId=self.sheet_id).execute()
+            end = 40000
+            for sheet_metadata in sheet_metadatas['sheets']:
+                if sheet_metadata['properties']['title'] == self.sheet_name:
+                    end = sheet_metadata['properties']['gridProperties']['rowCount']
+                    break
+
+            # Use binary search to find last row with info in it, google sheets holds 40k entries
+            # this prevents up to 40k entries returned on init
+            start = 1
+            result = None
+            sheet_values = service.spreadsheets().values()
+            while start <= end:
+                mid = (start + end) // 2
+                range_name = f'{self.sheet_name}!A{mid + 1}:A{mid + 1}'
+                row = sheet_values.get(spreadsheetId=self.sheet_id, range=range_name).execute().get('values', [[]])[0]
+                if row and row[0]:
+                    start = mid + 1
+                    result = row
+                else:
+                    end = mid - 1
+
+            if result:
+                formatted_datetime = result[0]
+                actual_datetime = datetime.fromisoformat(formatted_datetime.replace(' ', 'T'))
+                return actual_datetime.timestamp()
+        except (HttpError, ValueError) as err:
+            print(err)
+            print("Error during google sheets setup. Initiating with current time. Potentially missed mod actions.")
+            return time.time()
 
     def append_to_sheet(self, values):
-        print("Still not doing anything")
-        # if Settings.is_dry_run:
-        #     print("\tDRY RUN!!!")
-        #     return
-        #
-        # creds = self.get_credentials()
-        # service = build('sheets', 'v4', credentials=creds)
-        # request_range = f'{self.sheet_name}!A:E'
-        # request_body = {
-        #     'range': request_range,
-        #     'values': values,
-        #     'majorDimension': 'ROWS'
-        # }
-        # try:
-        #     result = service.spreadsheets().values().append(
-        #         spreadsheetId=self.sheet_id,
-        #         range=request_range,
-        #         valueInputOption='USER_ENTERED',
-        #         body=request_body).execute()
-        #     print(f'{result.get("updates").get("updatedCells")} cells appended.')
-        # except HttpError as error:
-        #     print(f'The API returned an error: {error}')
-        #     # invalidate credentials just in case re-initing will fix things
-        #     self.creds = None
+        if Settings.is_dry_run:
+            print("\tDRY RUN!!!")
+            return
+
+        creds = self.get_credentials()
+        service = build('sheets', 'v4', credentials=creds)
+        request_range = f'{self.sheet_name}!A:E'
+        request_body = {
+            'range': request_range,
+            'values': values,
+            'majorDimension': 'ROWS'
+        }
+        try:
+            result = service.spreadsheets().values().append(
+                spreadsheetId=self.sheet_id,
+                range=request_range,
+                valueInputOption='USER_ENTERED',
+                body=request_body).execute()
+            print(f'{result.get("updates").get("updatedCells")} cells appended.')
+        except HttpError as error:
+            print(f'The API returned an error: {error}')
+            # invalidate credentials just in case re-initing will fix things
+            self.creds = None
 
     def get_credentials(self):
         # if creds already exists, refresh if needed
