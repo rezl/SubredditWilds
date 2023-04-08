@@ -79,7 +79,8 @@ class GoogleSheetsRecorder:
         # first time initialization
         if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
             # bot credentials is stored as base64 file so it can be provided to fly as a secret
-            with open('credentials.base64', 'r') as f:
+            credentials_file = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
+            with open(credentials_file, 'r') as f:
                 credentials_base64 = f.read().strip()
             # decode the base64 string to bytes
             credentials_bytes = base64.b64decode(credentials_base64)
