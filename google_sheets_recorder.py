@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import base64
+import gc
 import json
 from datetime import datetime
 import os.path
@@ -24,6 +25,7 @@ class GoogleSheetsRecorder:
         self.creds = None
         self.creds = self.get_credentials()
         self.last_timestamp = self.find_last_timestamp()
+        gc.collect()
 
     def find_last_timestamp(self):
         try:
@@ -61,6 +63,7 @@ class GoogleSheetsRecorder:
             return time.time()
 
     def append_to_sheet(self, values):
+        return
         if Settings.is_dry_run:
             print("\tDRY RUN!!!")
             return
