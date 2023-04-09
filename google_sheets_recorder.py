@@ -71,25 +71,39 @@ class GoogleSheetsRecorder:
             print("\tDRY RUN!!!")
             return
 
-        creds = self.get_credentials()
-        service = build('sheets', 'v4', credentials=creds)
-        request_range = f'{self.sheet_name}!A:E'
-        request_body = {
-            'range': request_range,
-            'values': values,
-            'majorDimension': 'ROWS'
-        }
-        try:
-            result = service.spreadsheets().values().append(
-                spreadsheetId=self.sheet_id,
-                range=request_range,
-                valueInputOption='USER_ENTERED',
-                body=request_body).execute()
-            print(f'{result.get("updates").get("updatedCells")} cells appended.')
-        except HttpError as error:
-            print(f'The API returned an error: {error}')
-            # invalidate credentials just in case re-initing will fix things
-            self.creds = None
+        max_retries = 3
+        initial_backoff_time_secs = 5
+
+        for i in range(max_retries):
+            try:
+                creds = self.get_credentials()
+                service = build('sheets', 'v4', credentials=creds)
+                request_range = f'{self.sheet_name}!A:E'
+                request_body = {
+                    'range': request_range,
+                    'values': values,
+                    'majorDimension': 'ROWS'
+                }
+                result = service.spreadsheets().values().append(
+                    spreadsheetId=self.sheet_id,
+                    range=request_range,
+                    valueInputOption='USER_ENTERED',
+                    body=request_body).execute()
+                print(f'{result.get("updates").get("updatedCells")} cells appended for {str(values)}')
+                return
+            except HttpError as error:
+                print(f'The API returned an error: {str(error)}')
+
+                if error.resp.status == 401:
+                    # The credentials have been revoked or expired
+                    print(f'The credentials have been revoked or expired, invalidating')
+                    self.creds = None
+
+                backoff_time_secs = initial_backoff_time_secs ** i
+                print(f'Retrying in {backoff_time_secs} seconds...')
+                time.sleep(backoff_time_secs)
+
+        print(f'Failed to update google sheets after {max_retries} retries.')
 
     def get_credentials(self):
         # if creds already exists, refresh if needed
