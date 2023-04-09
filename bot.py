@@ -1,8 +1,7 @@
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from threading import Thread
 
-from praw.exceptions import RedditAPIException
 
 import config
 import os
@@ -65,23 +64,14 @@ def handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler
 
 def handle_mod_removals(discord_client, subreddit_tracker, reddit_handler):
     for action in subreddit_tracker.subreddit.mod.stream.log(action="removelink"):
-        # retry if exceptions thrown
-        for i in range(max_retries):
-            try:
-                handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler)
-                break
-            except RedditAPIException as e:
-                message = f"Exception when handling action {get_id(action.target_fullname)}:" \
-                          f" {e}\n```{traceback.format_exc()}```"
-                discord_client.send_error_msg(message)
-                print(message)
-                time.sleep(retry_wait_time_secs)
-            except Exception as e:
-                message = f"Exception when handling action {get_id(action.target_fullname)}:" \
-                          f" {e}\n```{traceback.format_exc()}```"
-                discord_client.send_error_msg(message)
-                print(message)
-                break
+        try:
+            handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler)
+        except Exception as e:
+            message = f"Exception when handling action {get_id(action.target_fullname)}:" \
+                      f" {e}\n```{traceback.format_exc()}```"
+            discord_client.send_error_msg(message)
+            print(message)
+            break
 
 
 def handle_mod_action(google_sheets_recorder, action):
@@ -101,49 +91,31 @@ def handle_mod_action(google_sheets_recorder, action):
 
 def handle_mod_actions(discord_client, google_sheets_recorder, subreddit):
     for action in subreddit.mod.stream.log():
-        # retry if exceptions thrown
-        for i in range(max_retries):
-            try:
-                handle_mod_action(google_sheets_recorder, action)
-                break
-            except RedditAPIException as e:
-                message = f"Exception when handling action {str(action)}:" \
-                          f" {e}\n```{traceback.format_exc()}```"
-                discord_client.send_error_msg(message)
-                print(message)
-                time.sleep(retry_wait_time_secs)
-            except Exception as e:
-                message = f"Exception when handling action {str(action)}:" \
-                          f" {e}\n```{traceback.format_exc()}```"
-                discord_client.send_error_msg(message)
-                print(message)
-                break
+        try:
+            handle_mod_action(google_sheets_recorder, action)
+        except Exception as e:
+            message = f"Exception when handling action {str(action)}:" \
+                      f" {e}\n```{traceback.format_exc()}```"
+            discord_client.send_error_msg(message)
+            print(message)
+            break
 
 
 def handle_modmail(discord_client, subreddit, reddit_handler):
     for conversation in subreddit.mod.stream.modmail_conversations(state="new", sort="unread"):
-        for i in range(max_retries):
-            # retry if exceptions thrown
-            try:
-                if should_respond(conversation, subreddit):
-                    message = f"Hi, thanks for messaging the r/{subreddit.display_name} mods. " \
-                              "If this message is about removed content, " \
-                              "please respond with a link to the content in question.\n\n" \
-                              "This is an automated bot response. " \
-                              "An organic mod will respond to you soon, " \
-                              "please allow 2 days as our team is across the world"
-                    reddit_handler.reply_to_modmail(conversation, message)
-                break
-            except RedditAPIException as e:
-                message = f"API Exception when handling modmail {conversation.id}: {e}\n```{traceback.format_exc()}```"
-                discord_client.send_error_msg(message)
-                print(message)
-                time.sleep(retry_wait_time_secs)
-            except Exception as e:
-                message = f"Exception when handling modmail {conversation.id}: {e}\n```{traceback.format_exc()}```"
-                discord_client.send_error_msg(message)
-                print(message)
-                break
+        try:
+            if should_respond(conversation, subreddit):
+                message = f"Hi, thanks for messaging the r/{subreddit.display_name} mods. " \
+                          "If this message is about removed content, " \
+                          "please respond with a link to the content in question.\n\n" \
+                          "This is an automated bot response. " \
+                          "An organic mod will respond to you soon, please allow 2 days as our team is across the world"
+                reddit_handler.reply_to_modmail(conversation, message)
+        except Exception as e:
+            message = f"Exception when handling modmail {conversation.id}: {e}\n```{traceback.format_exc()}```"
+            discord_client.send_error_msg(message)
+            print(message)
+            break
 
 
 def modmail_contains(conversation, keyword):
@@ -177,7 +149,7 @@ def should_respond(conversation, subreddit):
             continue
         time_diff_secs = time.time() - action.created_at
         # no action in the last week
-        if time_diff_secs > 7 * 24 * 3600:
+        if time_diff_secs > timedelta(weeks=1).total_seconds():
             return False
         # person with recently removed content, should respond asking for a link
         if action.action in ["removecomment", "removelink", "banuser"]:
