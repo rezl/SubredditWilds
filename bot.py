@@ -162,7 +162,7 @@ def create_mod_actions_thread(client_id, client_secret, bot_username, bot_passwo
     reddit = create_reddit(bot_password, bot_username, client_id, client_secret, subreddit_name, "modactions")
     subreddit = reddit.subreddit(subreddit_name)
 
-    recorder = GoogleSheetsRecorder(settings.google_sheet_id, settings.google_sheet_name)
+    recorder = GoogleSheetsRecorder(discord_client, settings.google_sheet_id, settings.google_sheet_name)
 
     name = f"{subreddit_name}-ModActions"
     thread = ResilientThread(discord_client, name, target=handle_mod_actions,

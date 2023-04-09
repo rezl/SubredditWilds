@@ -7,9 +7,6 @@ from settings import Settings
 
 
 class RedditActionsHandler:
-    max_retries = 3
-    retry_delay_secs = 10
-
     def __init__(self, discord_client):
         self.discord_client = discord_client
         self.last_call_time = 0
@@ -31,18 +28,20 @@ class RedditActionsHandler:
         elapsed_time = time.time() - self.last_call_time
         if elapsed_time < reddit_throttle_secs:
             time.sleep(reddit_throttle_secs - elapsed_time)
+
         # retry reddit exceptions, such as throttling or reddit issues
-        for i in range(self.max_retries):
+        max_retries = 3
+        initial_backoff_time_secs = 5
+        for i in range(max_retries):
             try:
                 result = callback()
                 self.last_call_time = time.time()
                 return result
             except RedditAPIException as e:
-                message = f"Exception in RedditRetry: {e}\n```{traceback.format_exc()}```"
+                message = f"Reddit API exception: {e}\n```{traceback.format_exc()}```"
                 self.discord_client.send_error_msg(message)
                 print(message)
-                if i < self.max_retries - 1:
-                    print(f"Retrying in {self.retry_delay_secs} seconds...")
-                    time.sleep(self.retry_delay_secs)
-                else:
-                    raise e
+
+                backoff_time_secs = initial_backoff_time_secs ** i
+                print(f'Retrying in {backoff_time_secs} seconds...')
+                time.sleep(backoff_time_secs)

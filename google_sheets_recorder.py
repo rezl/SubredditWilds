@@ -3,6 +3,7 @@ from __future__ import print_function
 import base64
 import gc
 import json
+import traceback
 from datetime import datetime
 import os.path
 import time
@@ -19,7 +20,8 @@ from settings import Settings
 class GoogleSheetsRecorder:
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
-    def __init__(self, sheet_id, sheet_name):
+    def __init__(self, discord_client, sheet_id, sheet_name):
+        self.discord_client = discord_client
         self.sheet_id = sheet_id
         self.sheet_name = sheet_name
         self.creds = None
@@ -57,9 +59,12 @@ class GoogleSheetsRecorder:
                 formatted_datetime = result[0]
                 actual_datetime = datetime.fromisoformat(formatted_datetime.replace(' ', 'T'))
                 return actual_datetime.timestamp()
-        except (HttpError, ValueError) as err:
-            print(err)
-            print("Error during google sheets setup. Initiating with current time. Potentially missed mod actions.")
+        except (HttpError, ValueError) as error:
+            message = f'Google exception in setup: {str(error)}. ' \
+                      f'Initiating with current time. Potentially missed mod actions.' \
+                      f'\n```{traceback.format_exc()}```'
+            self.discord_client.send_error_msg(message)
+            print(message)
             return time.time()
 
     def append_to_sheet(self, values):
@@ -92,7 +97,9 @@ class GoogleSheetsRecorder:
                 print(f'{result.get("updates").get("updatedCells")} cells appended for {str(values)}')
                 return
             except HttpError as error:
-                print(f'The API returned an error: {str(error)}')
+                message = f'Google API exception for {str(values)}: {str(error)}\n```{traceback.format_exc()}```'
+                self.discord_client.send_error_msg(message)
+                print(message)
 
                 if error.resp.status == 401:
                     # The credentials have been revoked or expired
