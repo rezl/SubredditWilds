@@ -27,6 +27,7 @@ class GoogleSheetsRecorder:
         self.creds = None
         self.creds = self.get_credentials()
         self.last_timestamp = self.find_last_timestamp()
+        # force gc to clean up response objects
         gc.collect()
 
     def find_last_timestamp(self):
@@ -56,9 +57,11 @@ class GoogleSheetsRecorder:
                     end = mid - 1
 
             if result:
+                # assume google sheet in iso format (with ' ' instead of 'T')
                 formatted_datetime = result[0]
                 actual_datetime = datetime.fromisoformat(formatted_datetime.replace(' ', 'T'))
                 return actual_datetime.timestamp()
+            return time.time()
         except (HttpError, ValueError) as error:
             message = f'Google exception in setup: {str(error)}. ' \
                       f'Initiating with current time. Potentially missed mod actions.' \
@@ -69,6 +72,7 @@ class GoogleSheetsRecorder:
 
     def append_to_sheet(self, values):
         self.append_to_sheet_helper(values)
+        # force gc to clean up response objects
         gc.collect()
 
     def append_to_sheet_helper(self, values):
