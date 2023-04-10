@@ -16,9 +16,6 @@ import time
 
 from subreddit_tracker import SubredditTracker
 
-max_retries = 5
-retry_wait_time_secs = 30
-
 
 def get_id(fullname):
     split = fullname.split("_")
@@ -67,11 +64,9 @@ def handle_mod_removals(discord_client, subreddit_tracker, reddit_handler):
         try:
             handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler)
         except Exception as e:
-            message = f"Exception when handling action {get_id(action.target_fullname)}:" \
-                      f" {e}\n```{traceback.format_exc()}```"
+            message = f"Exception when handling action {str(action)}: {e}\n```{traceback.format_exc()}```"
             discord_client.send_error_msg(message)
             print(message)
-            break
 
 
 def handle_mod_action(google_sheets_recorder, action):
@@ -94,11 +89,9 @@ def handle_mod_actions(discord_client, google_sheets_recorder, subreddit):
         try:
             handle_mod_action(google_sheets_recorder, action)
         except Exception as e:
-            message = f"Exception when handling action {str(action)}:" \
-                      f" {e}\n```{traceback.format_exc()}```"
+            message = f"Exception when handling action {str(action)}: {e}\n```{traceback.format_exc()}```"
             discord_client.send_error_msg(message)
             print(message)
-            break
 
 
 def handle_modmail(discord_client, subreddit, reddit_handler):
@@ -115,7 +108,6 @@ def handle_modmail(discord_client, subreddit, reddit_handler):
             message = f"Exception when handling modmail {conversation.id}: {e}\n```{traceback.format_exc()}```"
             discord_client.send_error_msg(message)
             print(message)
-            break
 
 
 def modmail_contains(conversation, keyword):
