@@ -119,7 +119,10 @@ def modmail_contains(conversation, keyword):
 
 def should_respond(conversation, subreddit):
     # whitelist of initiators to not respond to
-    if conversation.messages[0].author in ["ModSupportBot"]:
+    first_author = conversation.messages[0].author
+    if first_author.name in ["ModSupportBot"]:
+        return False
+    if hasattr(first_author, 'is_admin') and first_author.is_admin:
         return False
     # already read - shouldn't occur, just extra protection
     if not conversation.last_unread:
