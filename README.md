@@ -3,21 +3,22 @@ This bot automates various moderation tasks in Reddit. Here are the main feature
 
 * Adding posts to a wilds subreddit
   * Whenever a post is removed, the bot will crosspost to a specified wilds subreddit
-  * This is an optional feature and can be enabled by setting the `subreddit_wilds` property in the Settings class
-* Posting to a removals subreddit or Discord channel
+* Posting comment mod removals to a removals subreddit or Discord channel
   * If a comment moderator removes a post, the bot will crosspost to a specified subreddit and/or message Discord channel
-  * This is an optional feature and can be enabled by setting the `subreddit_removals` and `discord_removals` properties in the Settings class
 * Handling modmail
-  * The bot can automatically respond to modmail by asking the sender to provide a link to the removed content
-  * This is an optional feature and can be enabled by setting the `check_modmail` property in the Settings class
-      Installation
-      Clone the repository: git clone https://github.com/username/repo.git.
-      Install the required packages: pip install -r requirements.txt.
-      Update the config.py file with your Reddit and Discord API credentials.
-      Set the necessary values in the Settings class in settings.py.
-      Run the bot: python main.py.
-      Settings
-      Here are the available settings in the Settings class:
+  * Bot response to modmail by asking the sender to provide a link to the removed content
+* Recording mod actions
+  * Mod actions recorded to a Google Sheets spreadsheet
+
+All features are optional.
+
+## Quick Setup
+* Clone the repository: git clone https://github.com/rezl/SubredditWilds.git
+* Install the required packages: `pip install -r requirements.txt`
+* Update the config.py file with your Reddit and Discord API credentials
+* Override the credentials-user.json with your credentials from Google Cloud Console (or disable this feature in settings.py)
+* Set the necessary values in the Settings class in settings.py
+* Run the bot: `python bot.py`
 
 
 ## Usage
@@ -34,7 +35,8 @@ Run the bot with the python main.py command. The bot will start monitoring the s
 * `subreddit_removals`: The subreddit where removed posts should be posted. (optional)
 * `discord_removals_server`: The Discord server where the bot should post removed posts. (optional)
 * `discord_removals_channel`: The Discord channel where the bot should post removed posts. (optional)
-
+* `google_sheet_id`: The Google Sheets ID for mod action recording
+* `google_sheet_name`: The tab name in google_sheet_id for mod actions
 
 # Requirements
 - code: https://github.com/rezl/SubredditWilds.git
@@ -88,6 +90,29 @@ Run the bot with the python main.py command. The bot will start monitoring the s
 
 11. Make note of the secret code for the next steps.
 
+## Setup Google Console
+1. Create Google Console project and bot
+   1. https://console.cloud.google.com/getting-started
+   2. [Follow this section of this guide](https://robocorp.com/docs/development-guide/google-sheets/interacting-with-google-sheets#create-a-google-service-account)
+   3. Copy the bot email for later use (e.g. bot-name@project-name.iam.gserviceaccount.com)
+2. Add bot to Google Sheet
+   1. [Follow this section of this guide](https://robocorp.com/docs/development-guide/google-sheets/interacting-with-google-sheets#create-a-new-google-sheet-and-add-the-service-account-as-an-editor-to-it)
+   2. Add the bot as a test user (and yourself):
+      1. Google Cloud Console > APIs & Services > OAuth Consent Screen > (scroll down) Test Users > Add Users
+      2. Add emails
+3. Download your and the bot credentials file for later use (bot file done in step 1)
+   1. Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs > far-right button "Download OAuth Client"
+      1. Rename this file to the project, root level, and rename to "credentials-user.json"
+      2. See existing example file "credentials-user.json" to double-check expected format and content
+   2. The script normally does not run locally with bot credentials - if you want to run locally with bot credentials (instead of your own), you need to set env var or modify the script
+   3. The bot credentials are made available to fly.io via a "secret", which is an env var provided to script at runtime
+   4. Normally when running locally, you will use your OWN credentials, and the bot will prompt you for authentication
+4. Encode the bot file into a base64 string for fly.io setup
+   1. Terminal command, run in Git Bash: `$ base64 credentials-bot2.json | tr --delete '\n'`
+      1. This is done to provide the downloaded credentials file to fly.io in a secure manner (through secrets), in a supported way (file itself isn't supported, but strings are)
+      2. The script will decode this base64 string back into json format for Google API
+   2. Store this string somewhere for later fly.io setup (where you will add it as a secret)
+      1. `flyctl secrets set GOOGLE_APPLICATION_CREDENTIALS=<output string from previous step>`
 
 ## Configure the Bot
 1. Open the folder containing local copy of your repo from Setup Git > step 5
@@ -150,6 +175,7 @@ Run the bot with the python main.py command. The bot will start monitoring the s
    1. app page (https://fly.io/apps/<appname>) > Secrets
    2. Reference: https://fly.io/docs/reference/secrets/#setting-secrets
    3. `flyctl secrets set BOT_USERNAME=BotRedditUsername`
+      1. For Google credentials, set to earlier step output: `flyctl secrets set GOOGLE_APPLICATION_CREDENTIALS=<output string from previous step>`
    4. Add your each secret individually with above command (after set, they are encrypted and not readable):
    ```
    BOT_USERNAME = 'ReallyCoolBot'
@@ -159,6 +185,7 @@ Run the bot with the python main.py command. The bot will start monitoring the s
    DISCORD_TOKEN = 'asdfasdfasdf'
    DISCORD_ERROR_GUILD = 'asdfasdfasdf'
    DISCORD_ERROR_CHANNEL = 'asdfasdfasdf'
+   GOOGLE_APPLICATION_CREDENTIALS = ...special setup...
    SUBREDDITS = 'SomeSubreddit,AnotherSubreddit'
    ```
 
