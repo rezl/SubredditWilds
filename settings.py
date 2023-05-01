@@ -40,6 +40,9 @@ class UFOsSettings(Settings):
     discord_removals_server = 'UFO Moderators'
     discord_removals_channel = 'cm-post-removals'
 
+    google_sheet_id = '1H--XIuPwkBKad8hBTrn3oh4KFny6NJA0jXssB1IQ-Jw'
+    google_sheet_name = 'Mod Actions'
+
 
 class SettingsFactory:
     settings_classes = {
@@ -55,5 +58,3 @@ class SettingsFactory:
 
         settings_class = SettingsFactory.settings_classes.get(subreddit_name.lower(), Settings)
         return settings_class()
-
-
