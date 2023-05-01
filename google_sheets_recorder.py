@@ -4,9 +4,9 @@ import base64
 import gc
 import json
 import traceback
-from datetime import datetime
 import os.path
 import time
+from datetime import datetime, timezone
 
 from google.auth.transport.requests import Request
 from google.oauth2 import service_account
@@ -57,10 +57,11 @@ class GoogleSheetsRecorder:
                     end = mid - 1
 
             if result:
-                # assume google sheet in iso format (with ' ' instead of 'T')
-                formatted_datetime = result[0]
-                actual_datetime = datetime.fromisoformat(formatted_datetime.replace(' ', 'T'))
-                return actual_datetime.timestamp()
+                # assume google sheet in utc iso format (with ' ' instead of 'T')
+                formatted_utc_datetime = result[0]
+                iso_formatted_utc_dt = datetime.fromisoformat(formatted_utc_datetime.replace(' ', 'T'))
+                utc_datetime = iso_formatted_utc_dt.replace(tzinfo=timezone.utc)
+                return utc_datetime.timestamp()
             return time.time()
         except (HttpError, ValueError) as error:
             message = f'Google exception in setup: {str(error)}. ' \
@@ -71,6 +72,7 @@ class GoogleSheetsRecorder:
             return time.time()
 
     def append_to_sheet(self, values):
+        print(f'Adding to google sheet for {str(values)}')
         self.append_to_sheet_helper(values)
         # force gc to clean up response objects
         gc.collect()
