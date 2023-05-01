@@ -62,7 +62,7 @@ class GoogleSheetsRecorder:
                 iso_formatted_utc_dt = datetime.fromisoformat(formatted_utc_datetime.replace(' ', 'T'))
                 utc_datetime = iso_formatted_utc_dt.replace(tzinfo=timezone.utc)
                 return utc_datetime.timestamp()
-            return time.time()
+            return 0
         except (HttpError, ValueError) as error:
             message = f'Google exception in setup: {str(error)}. ' \
                       f'Initiating with current time. Potentially missed mod actions.' \
