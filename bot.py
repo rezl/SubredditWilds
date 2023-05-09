@@ -25,6 +25,7 @@ def get_id(fullname):
 def handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler):
     comment_mods = subreddit_tracker.get_comment_mods()
     submission_id = get_id(action.target_fullname)
+    # Automod exempt
     if action.mod == "AutoModerator":
         return
     if action.details == "confirm_spam":
