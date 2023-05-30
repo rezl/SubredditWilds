@@ -1,4 +1,3 @@
-import platform
 import traceback
 from datetime import datetime, timedelta
 from threading import Thread
@@ -255,12 +254,4 @@ def run_forever():
 
 
 if __name__ == "__main__":
-    print(platform.system())
-    if platform.system() == "Linux":
-        import resource
-        # Set the maximum resident set size to 256MB
-        hard_limit = 256 * 1024 * 1024  # 256MB in bytes
-        soft_limit = int(hard_limit * 0.75)  # Set the soft limit at 75% of the maximum
-        resource.setrlimit(resource.RLIMIT_RSS, (soft_limit, hard_limit))
-
     run_forever()
