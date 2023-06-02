@@ -63,16 +63,10 @@ def handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler
 def handle_mod_action(google_sheets_recorder, action):
     if action.mod in ["AutoModerator", "StatementBot"]:
         return
-    # this is required on startup to prevent re-actioning startup stream
-    if action.created_utc <= google_sheets_recorder.last_timestamp:
-        return
-
-    dt_utc = datetime.utcfromtimestamp(action.created_utc)
-    formatted_dt = dt_utc.isoformat().replace('T', ' ')
     link = action.target_permalink if hasattr(action, 'target_permalink') else ''
     details = action.details if hasattr(action, 'details') else ''
-    value = [[formatted_dt, action.mod.name, action.action, link, details]]
-    google_sheets_recorder.append_to_sheet(value)
+    google_sheets_recorder.append_to_sheet(action.subreddit, action.created_utc,
+                                           action.mod.name, action.action, link, details)
 
 
 def handle_mod_actions(discord_client, google_sheets_recorder, subreddit_tracker, reddit_handler):
@@ -151,7 +145,7 @@ def should_respond(conversation):
 
 
 def create_mod_actions_thread(client_id, client_secret, bot_username, bot_password,
-                              discord_client, settings, subreddit_name):
+                              discord_client, recorder, settings, subreddit_name):
     reddit = create_reddit(bot_password, bot_username, client_id, client_secret, subreddit_name, "modactions")
     subreddit_wilds = reddit.subreddit(settings.subreddit_wilds) if settings.subreddit_wilds else None
     subreddit_removals = reddit.subreddit(settings.subreddit_removals) if settings.subreddit_removals else None
@@ -160,9 +154,6 @@ def create_mod_actions_thread(client_id, client_secret, bot_username, bot_passwo
                                          settings.comment_mod_permissions, settings.comment_mod_whitelist,
                                          settings.discord_removals_server, settings.discord_removals_channel)
     reddit_handler = RedditActionsHandler(discord_client)
-
-    recorder = GoogleSheetsRecorder(discord_client, settings.google_sheet_id, settings.google_sheet_name) \
-        if (settings.google_sheet_id and settings.google_sheet_name) else None
 
     name = f"{subreddit_name}-ModActions"
     thread = ResilientThread(discord_client, name, target=handle_mod_actions,
@@ -215,13 +206,17 @@ def run_forever():
         time.sleep(1)
 
     try:
+        recorder = GoogleSheetsRecorder(discord_client)
         modmail_interested = list()
         for subreddit_name in subreddit_names:
             settings = SettingsFactory.get_settings(subreddit_name)
             print(f"Creating {subreddit_name} subreddit with {type(settings).__name__} settings")
 
+            if settings.google_sheet_id and settings.google_sheet_name:
+                recorder.add_sheet_for_sub(subreddit_name, settings.google_sheet_id, settings.google_sheet_name)
+
             create_mod_actions_thread(client_id, client_secret, bot_username, bot_password,
-                                      discord_client, settings, subreddit_name)
+                                      discord_client, recorder, settings, subreddit_name)
 
             if settings.check_modmail:
                 modmail_interested.append(subreddit_name)

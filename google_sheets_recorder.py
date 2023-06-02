@@ -17,27 +17,40 @@ from googleapiclient.errors import HttpError
 from settings import Settings
 
 
+class MonitoredSubreddit:
+    def __init__(self, subreddit_name, sheet_id, sheet_name, last_timestamp):
+        self.subreddit_name = subreddit_name
+        self.sheet_id = sheet_id
+        self.sheet_name = sheet_name
+        self.last_timestamp = last_timestamp
+
+
 class GoogleSheetsRecorder:
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
-    def __init__(self, discord_client, sheet_id, sheet_name):
+    def __init__(self, discord_client):
         self.discord_client = discord_client
-        self.sheet_id = sheet_id
-        self.sheet_name = sheet_name
         self.creds = None
         self.creds = self.get_credentials()
-        self.last_timestamp = self.find_last_timestamp()
+        self.monitored_subs = {}
+
         # force gc to clean up response objects
         gc.collect()
 
-    def find_last_timestamp(self):
+    def add_sheet_for_sub(self, subreddit_name, sheet_id, sheet_name):
+        print(f"Adding google sheet recording for {subreddit_name}")
+        last_timestamp = self.find_last_timestamp(sheet_id, sheet_name)
+        monitored_sub = MonitoredSubreddit(subreddit_name, sheet_id, sheet_name, last_timestamp)
+        self.monitored_subs[subreddit_name.lower()] = monitored_sub
+
+    def find_last_timestamp(self, sheet_id, sheet_name):
         try:
             service = build('sheets', 'v4', credentials=self.creds)
 
-            sheet_metadatas = service.spreadsheets().get(spreadsheetId=self.sheet_id).execute()
+            sheet_metadatas = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
             end = 40000
             for sheet_metadata in sheet_metadatas['sheets']:
-                if sheet_metadata['properties']['title'] == self.sheet_name:
+                if sheet_metadata['properties']['title'] == sheet_name:
                     end = sheet_metadata['properties']['gridProperties']['rowCount']
                     break
 
@@ -48,8 +61,8 @@ class GoogleSheetsRecorder:
             sheet_values = service.spreadsheets().values()
             while start <= end:
                 mid = (start + end) // 2
-                range_name = f'{self.sheet_name}!A{mid + 1}:A{mid + 1}'
-                row = sheet_values.get(spreadsheetId=self.sheet_id, range=range_name).execute().get('values', [[]])[0]
+                range_name = f'{sheet_name}!A{mid + 1}:A{mid + 1}'
+                row = sheet_values.get(spreadsheetId=sheet_id, range=range_name).execute().get('values', [[]])[0]
                 if row and row[0]:
                     start = mid + 1
                     result = row
@@ -71,13 +84,30 @@ class GoogleSheetsRecorder:
             print(message)
             return time.time()
 
-    def append_to_sheet(self, values):
-        print(f'Adding to google sheet for {str(values)}')
-        self.append_to_sheet_helper(values)
+    def append_to_sheet(self, subreddit_name, created_utc, mod_name, action, link, details):
+        subreddit_name = subreddit_name.lower()
+        if subreddit_name not in self.monitored_subs:
+            print(f"Ignoring mod action as unmonitored sub: {subreddit_name}")
+            return
+        monitored_sub = self.monitored_subs[subreddit_name]
+        sheet_id = monitored_sub.sheet_id
+        sheet_name = monitored_sub.sheet_name
+        last_timestamp = monitored_sub.last_timestamp
+
+        # this is required on startup to prevent re-actioning startup stream
+        if created_utc <= last_timestamp:
+            return
+
+        dt_utc = datetime.utcfromtimestamp(created_utc)
+        formatted_dt = dt_utc.isoformat().replace('T', ' ')
+        values = [[formatted_dt, mod_name, action, link, details]]
+
+        self.append_to_sheet_helper(sheet_id, sheet_name, values)
         # force gc to clean up response objects
         gc.collect()
 
-    def append_to_sheet_helper(self, values):
+    def append_to_sheet_helper(self, sheet_id, sheet_name, values):
+        print(f'Adding to google sheet for {str(values)}')
         if Settings.is_dry_run:
             print("\tDRY RUN!!!")
             return
@@ -89,14 +119,14 @@ class GoogleSheetsRecorder:
             try:
                 creds = self.get_credentials()
                 service = build('sheets', 'v4', credentials=creds)
-                request_range = f'{self.sheet_name}!A:E'
+                request_range = f'{sheet_name}!A:E'
                 request_body = {
                     'range': request_range,
                     'values': values,
                     'majorDimension': 'ROWS'
                 }
                 result = service.spreadsheets().values().append(
-                    spreadsheetId=self.sheet_id,
+                    spreadsheetId=sheet_id,
                     range=request_range,
                     valueInputOption='USER_ENTERED',
                     body=request_body).execute()
