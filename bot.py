@@ -60,16 +60,6 @@ def handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler
                                     message)
 
 
-def handle_mod_removals(discord_client, subreddit_tracker, reddit_handler):
-    for action in subreddit_tracker.subreddit.mod.stream.log(action="removelink"):
-        try:
-            handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler)
-        except Exception as e:
-            message = f"Exception when handling action {str(action)}: {e}\n```{traceback.format_exc()}```"
-            discord_client.send_error_msg(message)
-            print(message)
-
-
 def handle_mod_action(google_sheets_recorder, action):
     if action.mod in ["AutoModerator", "StatementBot"]:
         return
@@ -85,10 +75,14 @@ def handle_mod_action(google_sheets_recorder, action):
     google_sheets_recorder.append_to_sheet(value)
 
 
-def handle_mod_actions(discord_client, google_sheets_recorder, subreddit):
+def handle_mod_actions(discord_client, google_sheets_recorder, subreddit_tracker, reddit_handler):
+    subreddit = subreddit_tracker.subreddit
     for action in subreddit.mod.stream.log():
         try:
-            handle_mod_action(google_sheets_recorder, action)
+            if google_sheets_recorder:
+                handle_mod_action(google_sheets_recorder, action)
+            if action.action == "removelink":
+                handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler)
         except Exception as e:
             message = f"Exception when handling action {str(action)}: {e}\n```{traceback.format_exc()}```"
             discord_client.send_error_msg(message)
@@ -159,20 +153,6 @@ def should_respond(conversation):
 def create_mod_actions_thread(client_id, client_secret, bot_username, bot_password,
                               discord_client, settings, subreddit_name):
     reddit = create_reddit(bot_password, bot_username, client_id, client_secret, subreddit_name, "modactions")
-    subreddit = reddit.subreddit(subreddit_name)
-
-    recorder = GoogleSheetsRecorder(discord_client, settings.google_sheet_id, settings.google_sheet_name)
-
-    name = f"{subreddit_name}-ModActions"
-    thread = ResilientThread(discord_client, name, target=handle_mod_actions,
-                             args=(discord_client, recorder, subreddit))
-    thread.start()
-    print(f"Created {name} thread")
-
-
-def create_mod_removals_thread(client_id, client_secret, bot_username, bot_password,
-                               discord_client, settings, subreddit_name):
-    reddit = create_reddit(bot_password, bot_username, client_id, client_secret, subreddit_name, "modremovals")
     subreddit_wilds = reddit.subreddit(settings.subreddit_wilds) if settings.subreddit_wilds else None
     subreddit_removals = reddit.subreddit(settings.subreddit_removals) if settings.subreddit_removals else None
     subreddit_tracker = SubredditTracker(reddit, reddit.subreddit(subreddit_name),
@@ -181,9 +161,12 @@ def create_mod_removals_thread(client_id, client_secret, bot_username, bot_passw
                                          settings.discord_removals_server, settings.discord_removals_channel)
     reddit_handler = RedditActionsHandler(discord_client)
 
-    name = f"{subreddit_name}-ModRemovals"
-    thread = ResilientThread(discord_client, name,
-                             target=handle_mod_removals, args=(discord_client, subreddit_tracker, reddit_handler))
+    recorder = GoogleSheetsRecorder(discord_client, settings.google_sheet_id, settings.google_sheet_name) \
+        if (settings.google_sheet_id and settings.google_sheet_name) else None
+
+    name = f"{subreddit_name}-ModActions"
+    thread = ResilientThread(discord_client, name, target=handle_mod_actions,
+                             args=(discord_client, recorder, subreddit_tracker, reddit_handler))
     thread.start()
     print(f"Created {name} thread")
 
@@ -237,12 +220,8 @@ def run_forever():
             settings = SettingsFactory.get_settings(subreddit_name)
             print(f"Creating {subreddit_name} subreddit with {type(settings).__name__} settings")
 
-            create_mod_removals_thread(client_id, client_secret, bot_username, bot_password,
-                                       discord_client, settings, subreddit_name)
-
-            if settings.google_sheet_id and settings.google_sheet_name:
-                create_mod_actions_thread(client_id, client_secret, bot_username, bot_password,
-                                          discord_client, settings, subreddit_name)
+            create_mod_actions_thread(client_id, client_secret, bot_username, bot_password,
+                                      discord_client, settings, subreddit_name)
 
             if settings.check_modmail:
                 modmail_interested.append(subreddit_name)
