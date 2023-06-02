@@ -95,10 +95,12 @@ def handle_mod_actions(discord_client, google_sheets_recorder, subreddit):
             print(message)
 
 
-def handle_modmail(discord_client, subreddit, reddit_handler):
-    for conversation in subreddit.mod.stream.modmail_conversations(state="new", sort="unread"):
+def handle_modmail(discord_client, subreddits, reddit_handler):
+    for conversation in subreddits.mod.stream.modmail_conversations(state="new", sort="unread"):
+        subreddit = conversation.owner
+        print(f"Handling modmail: {str(subreddit)}: {str(conversation)}")
         try:
-            if should_respond(conversation, subreddit):
+            if should_respond(conversation):
                 message = f"Hi, thanks for messaging the r/{subreddit.display_name} mods. " \
                           "If this message is about removed content, " \
                           "please respond with a link to the content in question.\n\n" \
@@ -118,7 +120,7 @@ def modmail_contains(conversation, keyword):
     return False
 
 
-def should_respond(conversation, subreddit):
+def should_respond(conversation):
     # whitelist of initiators to not respond to
     first_author = conversation.messages[0].author
     if first_author.name in ["ModSupportBot"]:
@@ -133,6 +135,7 @@ def should_respond(conversation, subreddit):
         return False
 
     # message already contains a link to some reddit content
+    subreddit = conversation.owner
     if modmail_contains(conversation, f"{subreddit.display_name_prefixed}/comments/"):
         return False
 
@@ -229,6 +232,7 @@ def run_forever():
         time.sleep(1)
 
     try:
+        modmail_interested = list()
         for subreddit_name in subreddit_names:
             settings = SettingsFactory.get_settings(subreddit_name)
             print(f"Creating {subreddit_name} subreddit with {type(settings).__name__} settings")
@@ -241,8 +245,10 @@ def run_forever():
                                           discord_client, settings, subreddit_name)
 
             if settings.check_modmail:
-                create_modmail_thread(client_id, client_secret, bot_username, bot_password,
-                                      discord_client, subreddit_name)
+                modmail_interested.append(subreddit_name)
+
+        create_modmail_thread(client_id, client_secret, bot_username, bot_password, discord_client,
+                              "+".join(modmail_interested))
     except Exception as e:
         message = f"Exception in main processing: {e}\n```{traceback.format_exc()}```"
         discord_client.send_error_msg(message)
