@@ -1,16 +1,12 @@
 from __future__ import print_function
 
-import base64
 import gc
-import json
 import traceback
 import os.path
 import time
 from datetime import datetime, timezone
 
 from google.auth.transport.requests import Request
-from google.oauth2 import service_account
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
@@ -82,12 +78,11 @@ class GoogleSheetsRecorder:
                     'values': values,
                     'majorDimension': 'ROWS'
                 }
-                result = service.spreadsheets().values().append(
+                service.spreadsheets().values().append(
                     spreadsheetId=sheet_id,
                     range=request_range,
                     valueInputOption='USER_ENTERED',
                     body=request_body).execute()
-                print(f'{result.get("updates").get("updatedCells")} cells appended for {str(values)}')
                 return
             except HttpError as error:
                 message = f'Google API exception for {str(values)}: {str(error)}\n```{traceback.format_exc()}```'
@@ -116,6 +111,9 @@ class GoogleSheetsRecorder:
 
         # first time initialization - if env var set, assume this is a bot, otherwise authenticate user
         if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
+            from google.oauth2 import service_account
+            import base64
+            import json
             # bot credentials is stored as base64 string so it can be provided to fly as a secret
             credentials_base64 = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
             # decode the base64 string to bytes
@@ -126,6 +124,7 @@ class GoogleSheetsRecorder:
             credentials_dict = json.loads(credentials_json)
             creds = service_account.Credentials.from_service_account_info(credentials_dict, scopes=self.SCOPES)
         else:
+            from google_auth_oauthlib.flow import InstalledAppFlow
             flow = InstalledAppFlow.from_client_secrets_file('credentials-user.json', self.SCOPES)
             creds = flow.run_local_server(port=0)
 
