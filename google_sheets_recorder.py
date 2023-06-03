@@ -39,50 +39,51 @@ class GoogleSheetsRecorder:
 
     def add_sheet_for_sub(self, subreddit_name, sheet_id, sheet_name):
         print(f"Adding google sheet recording for {subreddit_name}")
-        last_timestamp = self.find_last_timestamp(sheet_id, sheet_name)
+        # last_timestamp = self.find_last_timestamp(sheet_id, sheet_name)
+        last_timestamp = datetime.now(timezone.utc).timestamp()
         monitored_sub = MonitoredSubreddit(subreddit_name, sheet_id, sheet_name, last_timestamp)
         self.monitored_subs[subreddit_name.lower()] = monitored_sub
 
-    def find_last_timestamp(self, sheet_id, sheet_name):
-        try:
-            service = build('sheets', 'v4', credentials=self.creds)
-
-            sheet_metadatas = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
-            end = 40000
-            for sheet_metadata in sheet_metadatas['sheets']:
-                if sheet_metadata['properties']['title'] == sheet_name:
-                    end = sheet_metadata['properties']['gridProperties']['rowCount']
-                    break
-
-            # Use binary search to find last row with info in it, google sheets holds 40k entries
-            # this prevents up to 40k entries returned on init
-            start = 1
-            result = None
-            sheet_values = service.spreadsheets().values()
-            while start <= end:
-                mid = (start + end) // 2
-                range_name = f'{sheet_name}!A{mid + 1}:A{mid + 1}'
-                row = sheet_values.get(spreadsheetId=sheet_id, range=range_name).execute().get('values', [[]])[0]
-                if row and row[0]:
-                    start = mid + 1
-                    result = row
-                else:
-                    end = mid - 1
-
-            if result:
-                # assume google sheet in utc iso format (with ' ' instead of 'T')
-                formatted_utc_datetime = result[0]
-                iso_formatted_utc_dt = datetime.fromisoformat(formatted_utc_datetime.replace(' ', 'T'))
-                utc_datetime = iso_formatted_utc_dt.replace(tzinfo=timezone.utc)
-                return utc_datetime.timestamp()
-            return 0
-        except (HttpError, ValueError) as error:
-            message = f'Google exception in setup: {str(error)}. ' \
-                      f'Initiating with current time. Potentially missed mod actions.' \
-                      f'\n```{traceback.format_exc()}```'
-            self.discord_client.send_error_msg(message)
-            print(message)
-            return time.time()
+    # def find_last_timestamp(self, sheet_id, sheet_name):
+    #     try:
+    #         service = build('sheets', 'v4', credentials=self.creds)
+    #
+    #         sheet_metadatas = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
+    #         end = 40000
+    #         for sheet_metadata in sheet_metadatas['sheets']:
+    #             if sheet_metadata['properties']['title'] == sheet_name:
+    #                 end = sheet_metadata['properties']['gridProperties']['rowCount']
+    #                 break
+    #
+    #         # Use binary search to find last row with info in it, google sheets holds 40k entries
+    #         # this prevents up to 40k entries returned on init
+    #         start = 1
+    #         result = None
+    #         sheet_values = service.spreadsheets().values()
+    #         while start <= end:
+    #             mid = (start + end) // 2
+    #             range_name = f'{sheet_name}!A{mid + 1}:A{mid + 1}'
+    #             row = sheet_values.get(spreadsheetId=sheet_id, range=range_name).execute().get('values', [[]])[0]
+    #             if row and row[0]:
+    #                 start = mid + 1
+    #                 result = row
+    #             else:
+    #                 end = mid - 1
+    #
+    #         if result:
+    #             # assume google sheet in utc iso format (with ' ' instead of 'T')
+    #             formatted_utc_datetime = result[0]
+    #             iso_formatted_utc_dt = datetime.fromisoformat(formatted_utc_datetime.replace(' ', 'T'))
+    #             utc_datetime = iso_formatted_utc_dt.replace(tzinfo=timezone.utc)
+    #             return utc_datetime.timestamp()
+    #         return 0
+    #     except (HttpError, ValueError) as error:
+    #         message = f'Google exception in setup: {str(error)}. ' \
+    #                   f'Initiating with current time. Potentially missed mod actions.' \
+    #                   f'\n```{traceback.format_exc()}```'
+    #         self.discord_client.send_error_msg(message)
+    #         print(message)
+    #         return time.time()
 
     def append_to_sheet(self, subreddit_name, created_utc, mod_name, action, link, details):
         subreddit_name = subreddit_name.lower()
