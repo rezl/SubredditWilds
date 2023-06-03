@@ -25,8 +25,8 @@ class GoogleSheetsRecorder:
 
     def __init__(self, discord_client):
         self.discord_client = discord_client
-        self.creds = None
         self.creds = self.get_credentials()
+        self.service = build('sheets', 'v4', credentials=self.creds)
         self.startup_timestamp = datetime.now(timezone.utc).timestamp()
         self.monitored_subs = {}
 
@@ -68,17 +68,18 @@ class GoogleSheetsRecorder:
         max_retries = 3
         initial_backoff_time_secs = 5
 
+        if self.creds.expired:
+            self.creds.refresh(Request())
+
         for i in range(max_retries):
             try:
-                creds = self.get_credentials()
-                service = build('sheets', 'v4', credentials=creds)
                 request_range = f'{sheet_name}!A:E'
                 request_body = {
                     'range': request_range,
                     'values': values,
                     'majorDimension': 'ROWS'
                 }
-                service.spreadsheets().values().append(
+                self.service.spreadsheets().values().append(
                     spreadsheetId=sheet_id,
                     range=request_range,
                     valueInputOption='USER_ENTERED',
@@ -90,9 +91,8 @@ class GoogleSheetsRecorder:
                 print(message)
 
                 if error.resp.status == 401:
-                    # The credentials have been revoked or expired
-                    print(f'The credentials have been revoked or expired, invalidating')
-                    self.creds = None
+                    print(f'The credentials have been revoked or expired, refreshing again?')
+                    self.creds.refresh(Request())
 
                 backoff_time_secs = initial_backoff_time_secs ** i
                 print(f'Retrying in {backoff_time_secs} seconds...')
@@ -101,15 +101,7 @@ class GoogleSheetsRecorder:
         print(f'Failed to update google sheets after {max_retries} retries.')
 
     def get_credentials(self):
-        # if creds already exists, refresh if needed
-        if self.creds:
-            if self.creds.valid:
-                return self.creds
-            else:
-                self.creds.refresh(Request())
-                return self.creds
-
-        # first time initialization - if env var set, assume this is a bot, otherwise authenticate user
+        # if env var set, assume this is a bot, otherwise authenticate user
         if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
             from google.oauth2 import service_account
             import base64
@@ -129,5 +121,4 @@ class GoogleSheetsRecorder:
             creds = flow.run_local_server(port=0)
 
         creds.refresh(Request())
-        self.creds = creds
         return creds
