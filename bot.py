@@ -1,5 +1,5 @@
 import traceback
-from datetime import datetime, timedelta
+from datetime import timedelta
 from threading import Thread
 
 
@@ -69,12 +69,12 @@ def handle_mod_action(google_sheets_recorder, action):
                                            action.mod.name, action.action, link, details)
 
 
-def handle_mod_actions(discord_client, google_sheets_recorder, subreddit_tracker, reddit_handler):
-    subreddit = subreddit_tracker.subreddit
-    for action in subreddit.mod.stream.log():
+def handle_mod_actions(discord_client, google_sheets_recorder, reddit_handler, reddit, subreddit_trackers):
+    subreddits = "+".join(list(subreddit_trackers.keys()))
+    for action in reddit.subreddit(subreddits).mod.stream.log():
+        subreddit_tracker = subreddit_trackers[action.subreddit.lower()]
         try:
-            if google_sheets_recorder:
-                handle_mod_action(google_sheets_recorder, action)
+            handle_mod_action(google_sheets_recorder, action)
             if action.action == "removelink":
                 handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler)
         except Exception as e:
@@ -144,26 +144,17 @@ def should_respond(conversation):
     return False
 
 
-def create_mod_actions_thread(client_id, client_secret, bot_username, bot_password,
-                              discord_client, recorder, settings, subreddit_name):
-    reddit = create_reddit(bot_password, bot_username, client_id, client_secret, subreddit_name, "modactions")
-    subreddit_wilds = reddit.subreddit(settings.subreddit_wilds) if settings.subreddit_wilds else None
-    subreddit_removals = reddit.subreddit(settings.subreddit_removals) if settings.subreddit_removals else None
-    subreddit_tracker = SubredditTracker(reddit, reddit.subreddit(subreddit_name),
-                                         subreddit_wilds, subreddit_removals,
-                                         settings.comment_mod_permissions, settings.comment_mod_whitelist,
-                                         settings.discord_removals_server, settings.discord_removals_channel)
-    reddit_handler = RedditActionsHandler(discord_client)
-
-    name = f"{subreddit_name}-ModActions"
+def create_mod_actions_thread(discord_client, recorder, reddit_handler, reddit, subreddit_trackers):
+    subreddits = "+".join(list(subreddit_trackers.keys()))
+    name = f"{subreddits}-ModActions"
     thread = ResilientThread(discord_client, name, target=handle_mod_actions,
-                             args=(discord_client, recorder, subreddit_tracker, reddit_handler))
+                             args=(discord_client, recorder, reddit_handler, reddit, subreddit_trackers))
     thread.start()
     print(f"Created {name} thread")
 
 
 def create_modmail_thread(client_id, client_secret, bot_username, bot_password, discord_client, subreddit_name):
-    reddit = create_reddit(bot_password, bot_username, client_id, client_secret, subreddit_name, "modmail")
+    reddit = create_reddit(bot_password, bot_username, client_id, client_secret, "modmail")
     subreddit = reddit.subreddit(subreddit_name)
     reddit_handler = RedditActionsHandler(discord_client)
 
@@ -174,11 +165,11 @@ def create_modmail_thread(client_id, client_secret, bot_username, bot_password, 
     print(f"Created {name} thread")
 
 
-def create_reddit(bot_password, bot_username, client_id, client_secret, subreddit_name, script_type):
+def create_reddit(bot_password, bot_username, client_id, client_secret, script_type):
     return praw.Reddit(
         client_id=client_id,
         client_secret=client_secret,
-        user_agent=f"flyio:com.subredditwilds.{script_type}.{subreddit_name}",
+        user_agent=f"flyio:com.subredditwilds.{script_type}",
         redirect_uri="http://localhost:8080",  # unused for script applications
         username=bot_username,
         password=bot_password
@@ -207,20 +198,28 @@ def run_forever():
 
     try:
         recorder = GoogleSheetsRecorder(discord_client)
+        reddit_handler = RedditActionsHandler(discord_client)
         modmail_interested = list()
+        reddit = create_reddit(bot_password, bot_username, client_id, client_secret, "modactions")
+        subreddit_trackers = dict()
         for subreddit_name in subreddit_names:
             settings = SettingsFactory.get_settings(subreddit_name)
             print(f"Creating {subreddit_name} subreddit with {type(settings).__name__} settings")
 
+            subreddit_base = reddit.subreddit(subreddit_name)
+            subreddit_wilds = reddit.subreddit(settings.subreddit_wilds) if settings.subreddit_wilds else None
+            subreddit_removals = reddit.subreddit(settings.subreddit_removals) if settings.subreddit_removals else None
+            subreddit_tracker = SubredditTracker(reddit, subreddit_base, subreddit_wilds, subreddit_removals,
+                                                 settings.comment_mod_permissions, settings.comment_mod_whitelist,
+                                                 settings.discord_removals_server, settings.discord_removals_channel)
+            subreddit_trackers[subreddit_name.lower()] = subreddit_tracker
+
             if settings.google_sheet_id and settings.google_sheet_name:
                 recorder.add_sheet_for_sub(subreddit_name, settings.google_sheet_id, settings.google_sheet_name)
-
-            create_mod_actions_thread(client_id, client_secret, bot_username, bot_password,
-                                      discord_client, recorder, settings, subreddit_name)
-
             if settings.check_modmail:
-                modmail_interested.append(subreddit_name)
+                modmail_interested.append(subreddit_name.lower())
 
+        create_mod_actions_thread(discord_client, recorder, reddit_handler, reddit, subreddit_trackers)
         create_modmail_thread(client_id, client_secret, bot_username, bot_password, discord_client,
                               "+".join(modmail_interested))
     except Exception as e:
