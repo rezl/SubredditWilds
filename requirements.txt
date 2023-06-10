@@ -3,5 +3,5 @@ praw==7.7.0
 discord==2.2.3
 google~=3.0.0
 DateTime~=5.1
-google-api-python-client==1.8.0
-google-auth-oauthlib==0.4.4
+google-api-python-client==2.88.0
+google-auth-oauthlib==1.0.0
