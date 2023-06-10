@@ -27,7 +27,6 @@ Run the bot with the python main.py command. The bot will start monitoring the s
 
 ## Settings
 * `is_dry_run`: Set to True to prevent any bot actions (report, remove, comments). This is useful for testing purposes.
-* `post_check_frequency_mins`: The frequency (in minutes) at which the bot should check for new posts.
 * `check_modmail`: Set to True to enable the bot to respond to modmail. (optional)
 * `comment_mod_permissions`: The permissions that comment mods should have. Comment mods are mods that should only remove comments and not posts. (optional)
 * `comment_mod_whitelist`: A whitelist of comment mods who should not have their posts checked. (optional)
