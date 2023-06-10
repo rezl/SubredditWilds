@@ -20,6 +20,16 @@ class RedditActionsHandler:
         self.reddit_call(lambda: conversation.reply(body=message, author_hidden=False))
         self.reddit_call(lambda: conversation.read(), reddit_throttle_secs=1)
 
+    def write_removal_reason_custom(self, content, reason):
+        print(f"Writing removal comment for {str(content)}: {reason}")
+        comment = self.reddit_call(lambda: content.reply(reason))
+        self.reddit_call(lambda: comment.mod.distinguish(sticky=True), reddit_throttle_secs=1)
+        self.reddit_call(lambda: comment.mod.lock(), reddit_throttle_secs=1)
+
+    def remove_content(self, removal_reason, content):
+        print(f"Removing content, reason: {removal_reason}")
+        self.reddit_call(lambda: content.mod.remove(mod_note=removal_reason))
+
     def reddit_call(self, callback, reddit_throttle_secs=5):
         if Settings.is_dry_run:
             print("\tDRY RUN!!!")

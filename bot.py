@@ -60,6 +60,23 @@ def handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler
                                     message)
 
 
+def handle_post_flair_action(subreddit_tracker, action, reddit_handler):
+    submission = subreddit_tracker.reddit.submission(id=get_id(action.target_fullname))
+    # assume normal removal methods (ie toolbox) always remove first then edit flair, so flair_helper shouldn't act
+    if submission.removed:
+        return
+    flair = submission.link_flair_text
+    if "Rule" not in flair:
+        return
+    response = f"Hi, thanks for contributing. " \
+               f"However, your submission was removed from r/{subreddit_tracker.subreddit.display_name}.\n\n" \
+               f"{flair}\n\n" \
+               f"You can message the mods if you feel this was in error," \
+               f" please include a link to the comment or post in question."
+    reddit_handler.remove_content("Flair helper", submission)
+    reddit_handler.write_removal_reason_custom(submission, response)
+
+
 def handle_mod_action(google_sheets_recorder, action):
     if action.mod in ["AutoModerator", "StatementBot"]:
         return
@@ -77,6 +94,8 @@ def handle_mod_actions(discord_client, google_sheets_recorder, reddit_handler, r
             handle_mod_action(google_sheets_recorder, action)
             if action.action == "removelink":
                 handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler)
+            if action.action == "editflair":
+                handle_post_flair_action(subreddit_tracker, action, reddit_handler)
         except Exception as e:
             message = f"Exception when handling action {str(action)}: {e}\n```{traceback.format_exc()}```"
             discord_client.send_error_msg(message)
