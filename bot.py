@@ -2,6 +2,7 @@ import traceback
 from datetime import timedelta
 from threading import Thread
 
+import requests
 
 import config
 import os
@@ -102,6 +103,38 @@ def handle_mod_actions(discord_client, google_sheets_recorder, reddit_handler, r
             print(message)
 
 
+def handle_toxic_comments(discord_client, subreddit, reddit_handler, toxicity_api_key):
+    for comment in subreddit.stream.comments():
+        try:
+            result = moderate(comment.body, 0.85, toxicity_api_key)
+            if result[0]:
+                print('Comment ({0}) reported @ {1}% confidence'.format(comment.permalink, result[1] * 100))
+                reddit_handler.report_content("Toxicity @ {0}% confidence".format(result[1] * 100), comment)
+        except (AttributeError, KeyError) as e:
+            message = f"Exception when handling modmail {comment.id}: {e}\n```{traceback.format_exc()}```"
+            discord_client.send_error_msg(message)
+            print(message)
+            traceback.print_exc()
+
+
+def moderate(text, thresh, toxicity_api_key):
+    """ Call API and return response list with boolean & confidence score """
+    text = re.sub(r'>[^\n]+', "", text)  # strip out quotes
+    response = requests.post("https://api.moderatehatespeech.com/api/v1/moderate/",
+                             json={"token": toxicity_api_key, "text": text}).json()
+
+    if response['response'] != "Success":
+        if response['response'] != "Authentication failure":
+            raise AttributeError('Invalid response: {0}'.format(response['response']))
+        else:
+            raise RuntimeError('Fatal response: {0}'.format(response['response']))
+
+    if response['class'] == "flag" and float(response['confidence']) > thresh:
+        return [True, round(float(response['confidence']), 3)]
+
+    return [False, round(float(response['confidence']), 3)]
+
+
 def handle_modmail(discord_client, subreddits, reddit_handler):
     for conversation in subreddits.mod.stream.modmail_conversations(state="new", sort="unread"):
         subreddit = conversation.owner
@@ -184,6 +217,20 @@ def create_modmail_thread(client_id, client_secret, bot_username, bot_password, 
     print(f"Created {name} thread")
 
 
+def create_toxicity_thread(client_id, client_secret, bot_username, bot_password, discord_client, subreddit_name,
+                           toxicity_api_key):
+    reddit = create_reddit(bot_password, bot_username, client_id, client_secret, "toxicity")
+    subreddit = reddit.subreddit(subreddit_name)
+    reddit_handler = RedditActionsHandler(discord_client)
+
+    name = f"{subreddit_name}-Toxicity"
+    thread = ResilientThread(discord_client, name,
+                             target=handle_toxic_comments,
+                             args=(discord_client, subreddit, reddit_handler, toxicity_api_key))
+    thread.start()
+    print(f"Created {name} thread")
+
+
 def create_reddit(bot_password, bot_username, client_id, client_secret, script_type):
     return praw.Reddit(
         client_id=client_id,
@@ -204,6 +251,7 @@ def run_forever():
     discord_token = os.environ.get("DISCORD_TOKEN", config.DISCORD_TOKEN)
     discord_error_guild_name = os.environ.get("DISCORD_ERROR_GUILD", config.DISCORD_ERROR_GUILD)
     discord_error_channel_name = os.environ.get("DISCORD_ERROR_CHANNEL", config.DISCORD_ERROR_CHANNEL)
+    toxicity_api_key = os.environ.get("TOXICITY_API_KEY", config.TOXICITY_API_KEY)
     subreddits_config = os.environ.get("SUBREDDITS", config.SUBREDDITS)
     subreddit_names = [subreddit.strip() for subreddit in subreddits_config.split(",")]
     print("CONFIG: subreddit_names=" + str(subreddit_names))
@@ -219,6 +267,7 @@ def run_forever():
         recorder = GoogleSheetsRecorder(discord_client)
         reddit_handler = RedditActionsHandler(discord_client)
         modmail_interested = list()
+        toxicity_interested = list()
         reddit = create_reddit(bot_password, bot_username, client_id, client_secret, "modactions")
         subreddit_trackers = dict()
         for subreddit_name in subreddit_names:
@@ -237,10 +286,14 @@ def run_forever():
                 recorder.add_sheet_for_sub(subreddit_name, settings.google_sheet_id, settings.google_sheet_name)
             if settings.check_modmail:
                 modmail_interested.append(subreddit_name.lower())
+            if settings.check_comment_toxicity:
+                toxicity_interested.append(subreddit_name.lower())
 
         create_mod_actions_thread(discord_client, recorder, reddit_handler, reddit, subreddit_trackers)
         create_modmail_thread(client_id, client_secret, bot_username, bot_password, discord_client,
                               "+".join(modmail_interested))
+        create_toxicity_thread(client_id, client_secret, bot_username, bot_password, discord_client,
+                               "+".join(toxicity_interested), toxicity_api_key)
     except Exception as e:
         message = f"Exception in main processing: {e}\n```{traceback.format_exc()}```"
         discord_client.send_error_msg(message)

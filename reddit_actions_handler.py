@@ -30,6 +30,10 @@ class RedditActionsHandler:
         print(f"Removing content, reason: {removal_reason}")
         self.reddit_call(lambda: content.mod.remove(mod_note=removal_reason))
 
+    def report_content(self, report_reason, content):
+        print(f"Reporting content, reason: {report_reason}")
+        self.reddit_call(lambda: content.report(report_reason))
+
     def reddit_call(self, callback, reddit_throttle_secs=5):
         if Settings.is_dry_run:
             print("\tDRY RUN!!!")

@@ -6,6 +6,7 @@ class Settings:
     is_dry_run = False
 
     check_modmail = False
+    check_comment_toxicity = False
 
     # comment mods are mods with, and only with, these permissions
     comment_mod_permissions = ["posts", "mail", "wiki"]
@@ -23,6 +24,7 @@ class Settings:
 
 class CollapseSettings(Settings):
     check_modmail = True
+    check_comment_toxicity = True
 
     subreddit_wilds = 'collapse_wilds'
     subreddit_removals = 'collapseremovals'
@@ -34,6 +36,8 @@ class CollapseSettings(Settings):
 
 
 class UFOsSettings(Settings):
+    check_comment_toxicity = True
+
     subreddit_wilds = None
     subreddit_removals = 'ufosremovals'
     discord_removals_server = 'UFO Moderators'
