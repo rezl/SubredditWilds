@@ -108,10 +108,11 @@ def handle_toxic_comments(discord_client, subreddit, reddit_handler, toxicity_ap
         try:
             result = moderate(comment.body, 0.85, toxicity_api_key)
             if result[0]:
-                print('Comment ({0}) reported @ {1}% confidence'.format(comment.permalink, result[1] * 100))
-                reddit_handler.report_content("Toxicity @ {0}% confidence".format(result[1] * 100), comment)
+                percent = result[1] * 100
+                print(f'Comment ({comment.permalink}) reported @ {percent}% confidence')
+                reddit_handler.report_content(f"Automatic report for toxicity @ {percent}% confidence", comment)
         except (AttributeError, KeyError) as e:
-            message = f"Exception when handling modmail {comment.id}: {e}\n```{traceback.format_exc()}```"
+            message = f"Exception when handling comment {comment.id}: {e}\n```{traceback.format_exc()}```"
             discord_client.send_error_msg(message)
             print(message)
             traceback.print_exc()
@@ -120,6 +121,10 @@ def handle_toxic_comments(discord_client, subreddit, reddit_handler, toxicity_ap
 def moderate(text, thresh, toxicity_api_key):
     """ Call API and return response list with boolean & confidence score """
     text = re.sub(r'>[^\n]+', "", text)  # strip out quotes
+    if re.match(r'^\s*$', text) is not None:
+        # the comment was just quotes and/or whitespace
+        return [False, 0]
+
     response = requests.post("https://api.moderatehatespeech.com/api/v1/moderate/",
                              json={"token": toxicity_api_key, "text": text}).json()
 
@@ -130,9 +135,9 @@ def moderate(text, thresh, toxicity_api_key):
             raise RuntimeError('Fatal response: {0}'.format(response['response']))
 
     if response['class'] == "flag" and float(response['confidence']) > thresh:
-        return [True, round(float(response['confidence']), 3)]
+        return [True, round(float(response['confidence']))]
 
-    return [False, round(float(response['confidence']), 3)]
+    return [False, round(float(response['confidence']))]
 
 
 def handle_modmail(discord_client, subreddits, reddit_handler):
@@ -205,10 +210,10 @@ def create_mod_actions_thread(discord_client, recorder, reddit_handler, reddit, 
     print(f"Created {name} thread")
 
 
-def create_modmail_thread(client_id, client_secret, bot_username, bot_password, discord_client, subreddit_name):
+def create_modmail_thread(client_id, client_secret, bot_username, bot_password, discord_client, reddit_handler,
+                          subreddit_name):
     reddit = create_reddit(bot_password, bot_username, client_id, client_secret, "modmail")
     subreddit = reddit.subreddit(subreddit_name)
-    reddit_handler = RedditActionsHandler(discord_client)
 
     name = f"{subreddit_name}-Modmail"
     thread = ResilientThread(discord_client, name,
@@ -217,13 +222,12 @@ def create_modmail_thread(client_id, client_secret, bot_username, bot_password, 
     print(f"Created {name} thread")
 
 
-def create_toxicity_thread(client_id, client_secret, bot_username, bot_password, discord_client, subreddit_name,
-                           toxicity_api_key):
-    reddit = create_reddit(bot_password, bot_username, client_id, client_secret, "toxicity")
+def create_comment_thread(client_id, client_secret, bot_username, bot_password, discord_client, reddit_handler,
+                          subreddit_name, toxicity_api_key):
+    reddit = create_reddit(bot_password, bot_username, client_id, client_secret, "comment")
     subreddit = reddit.subreddit(subreddit_name)
-    reddit_handler = RedditActionsHandler(discord_client)
 
-    name = f"{subreddit_name}-Toxicity"
+    name = f"{subreddit_name}-Comment"
     thread = ResilientThread(discord_client, name,
                              target=handle_toxic_comments,
                              args=(discord_client, subreddit, reddit_handler, toxicity_api_key))
@@ -290,10 +294,10 @@ def run_forever():
                 toxicity_interested.append(subreddit_name.lower())
 
         create_mod_actions_thread(discord_client, recorder, reddit_handler, reddit, subreddit_trackers)
-        create_modmail_thread(client_id, client_secret, bot_username, bot_password, discord_client,
+        create_modmail_thread(client_id, client_secret, bot_username, bot_password, discord_client, reddit_handler,
                               "+".join(modmail_interested))
-        create_toxicity_thread(client_id, client_secret, bot_username, bot_password, discord_client,
-                               "+".join(toxicity_interested), toxicity_api_key)
+        create_comment_thread(client_id, client_secret, bot_username, bot_password, discord_client, reddit_handler,
+                              "+".join(toxicity_interested), toxicity_api_key)
     except Exception as e:
         message = f"Exception in main processing: {e}\n```{traceback.format_exc()}```"
         discord_client.send_error_msg(message)
