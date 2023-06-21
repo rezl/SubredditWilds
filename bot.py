@@ -135,8 +135,8 @@ def moderate(text, thresh, toxicity_api_key):
             else:
                 raise RuntimeError('Fatal response: {0}'.format(response['response']))
         if response['class'] == "flag" and float(response['confidence']) > thresh:
-            return [True, round(float(response['confidence']))]
-        return [False, round(float(response['confidence']))]
+            return [True, round(float(response['confidence']), 2)]
+        return [False, round(float(response['confidence']), 2)]
     return [False, 0]
 
 
