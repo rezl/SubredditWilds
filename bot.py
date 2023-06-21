@@ -98,7 +98,8 @@ def handle_mod_actions(discord_client, google_sheets_recorder, reddit_handler, r
             if action.action == "editflair":
                 handle_post_flair_action(subreddit_tracker, action, reddit_handler)
         except Exception as e:
-            message = f"Exception when handling action {str(action)}: {e}\n```{traceback.format_exc()}```"
+            message = f"Exception when handling action {action.id} for {action.subreddit}: {e}\n" \
+                      f"```{traceback.format_exc()}```"
             discord_client.send_error_msg(message)
             print(message)
 
@@ -111,11 +112,10 @@ def handle_toxic_comments(discord_client, subreddit, reddit_handler, toxicity_ap
                 percent = result[1] * 100
                 print(f'Comment ({comment.permalink}) reported @ {percent}% confidence')
                 reddit_handler.report_content(f"Automatic report for toxicity @ {percent}% confidence", comment)
-        except (AttributeError, KeyError) as e:
+        except Exception as e:
             message = f"Exception when handling comment {comment.id}: {e}\n```{traceback.format_exc()}```"
             discord_client.send_error_msg(message)
             print(message)
-            traceback.print_exc()
 
 
 def moderate(text, thresh, toxicity_api_key):
