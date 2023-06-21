@@ -67,7 +67,7 @@ def handle_post_flair_action(subreddit_tracker, action, reddit_handler):
     if hasattr(submission, 'removed') and submission.removed:
         return
     flair = submission.link_flair_text
-    if "Rule" not in flair:
+    if not flair or "Rule" not in flair:
         return
     response = f"Hi, thanks for contributing. " \
                f"However, your submission was removed from r/{subreddit_tracker.subreddit.display_name}.\n\n" \
