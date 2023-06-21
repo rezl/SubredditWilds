@@ -128,16 +128,16 @@ def moderate(text, thresh, toxicity_api_key):
     response = requests.post("https://api.moderatehatespeech.com/api/v1/moderate/",
                              json={"token": toxicity_api_key, "text": text}).json()
 
-    if response['response'] != "Success":
-        if response['response'] != "Authentication failure":
-            raise AttributeError('Invalid response: {0}'.format(response['response']))
-        else:
-            raise RuntimeError('Fatal response: {0}'.format(response['response']))
-
-    if response['class'] == "flag" and float(response['confidence']) > thresh:
-        return [True, round(float(response['confidence']))]
-
-    return [False, round(float(response['confidence']))]
+    if 'response' in response:
+        if response['response'] != "Success":
+            if response['response'] != "Authentication failure":
+                raise AttributeError('Invalid response: {0}'.format(response['response']))
+            else:
+                raise RuntimeError('Fatal response: {0}'.format(response['response']))
+        if response['class'] == "flag" and float(response['confidence']) > thresh:
+            return [True, round(float(response['confidence']))]
+        return [False, round(float(response['confidence']))]
+    return [False, 0]
 
 
 def handle_modmail(discord_client, subreddits, reddit_handler):
