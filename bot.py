@@ -107,9 +107,9 @@ def handle_mod_actions(discord_client, google_sheets_recorder, reddit_handler, r
 def handle_toxic_comments(discord_client, subreddit, reddit_handler, toxicity_api_key):
     for comment in subreddit.stream.comments():
         try:
-            result = moderate(comment.body, 0.85, toxicity_api_key)
-            if result[0]:
-                percent = result[1] * 100
+            result = determine_toxicity(comment.body, toxicity_api_key)
+            if result > 0.85:
+                percent = result * 100
                 print(f'Comment ({comment.permalink}) reported @ {percent}% confidence')
                 reddit_handler.report_content(f"Automatic report for toxicity @ {percent}% confidence", comment)
         except Exception as e:
@@ -118,26 +118,26 @@ def handle_toxic_comments(discord_client, subreddit, reddit_handler, toxicity_ap
             print(message)
 
 
-def moderate(text, thresh, toxicity_api_key):
+def determine_toxicity(text, toxicity_api_key):
     """ Call API and return response list with boolean & confidence score """
     text = re.sub(r'>[^\n]+', "", text)  # strip out quotes
     if re.match(r'^\s*$', text) is not None:
         # the comment was just quotes and/or whitespace
-        return [False, 0]
+        return 0
 
-    response = requests.post("https://api.moderatehatespeech.com/api/v1/moderate/",
-                             json={"token": toxicity_api_key, "text": text}).json()
+    response_raw = requests.post("https://api.moderatehatespeech.com/api/v1/moderate/",
+                             json={"token": toxicity_api_key, "text": text})
+    try:
+        response = response_raw.json()
+    except Exception as e:
+        print(e)
+        raise Exception(f"Exception in json parsing response: {response_raw}")
 
-    if 'response' in response:
-        if response['response'] != "Success":
-            if response['response'] != "Authentication failure":
-                raise AttributeError('Invalid response: {0}'.format(response['response']))
-            else:
-                raise RuntimeError('Fatal response: {0}'.format(response['response']))
-        if response['class'] == "flag" and float(response['confidence']) > thresh:
-            return [True, round(float(response['confidence']), 2)]
-        return [False, round(float(response['confidence']), 2)]
-    return [False, 0]
+    if ('response' not in response) or ('class' not in response) or ('confidence' not in response):
+        print(f"Malformed response. Can't determine toxicity. Text={text}\n\nResponse={response}")
+        return 0
+
+    return round(float(response['confidence']), 2) if response['class'] == "flag" else 0
 
 
 def handle_modmail(discord_client, subreddits, reddit_handler):
