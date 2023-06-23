@@ -119,33 +119,21 @@ def handle_toxic_comments(discord_client, subreddit, reddit_handler, toxicity_ap
 
 
 def determine_toxicity(text, toxicity_api_key):
-    """ Call API and return response list with boolean & confidence score """
-    text = re.sub(r'>[^\n]+', "", text)  # strip out quotes
-    if re.match(r'^\s*$', text) is not None:
-        # the comment was just quotes and/or whitespace
-        return 0
-
-    response = requests.post("https://api.moderatehatespeech.com/api/v1/moderate/",
-                             json={"token": toxicity_api_key, "text": text})
+    # don't even try to error handle this, the API sends back weird stuff all the time
     try:
-        response_json = response.json()
+        """ Call API and return response list with boolean & confidence score """
+        text = re.sub(r'>[^\n]+', "", text)  # strip out quotes
+        if re.match(r'^\s*$', text) is not None:
+            # the comment was just quotes and/or whitespace
+            return 0
+
+        response = requests.post("https://api.moderatehatespeech.com/api/v1/moderate/",
+                                 json={"token": toxicity_api_key, "text": text}).json()
+
+        return float(response['confidence']) if response['class'] == "flag" else 0
     except Exception as e:
-        print(e)
-        response_data = dict()
-        response_data["status_code"] = response.status_code if hasattr(response, "status_code") else ""
-        response_data["text"] = response.text if hasattr(response, "text") else ""
-        response_data["reason"] = response.reason if hasattr(response, "reason") else ""
-        response_data["content"] = response.content if hasattr(response, "content") else ""
-
-        formatted_pairs = [f"{key}: {value}" for key, value in response_data.items()]
-        info = f"Response data: {formatted_pairs}"
-        raise Exception(f"Exception in json parsing response: {info}")
-
-    if ('response' not in response_json) or ('class' not in response_json) or ('confidence' not in response_json):
-        print(f"Malformed response. Can't determine toxicity. Text={text}\n\nResponse={response_json}")
+        print(f"determine_toxicity failed for text, ignoring: {text}")
         return 0
-
-    return float(response_json['confidence']) if response_json['class'] == "flag" else 0
 
 
 def handle_modmail(discord_client, subreddits, reddit_handler):
