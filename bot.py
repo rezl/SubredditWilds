@@ -41,18 +41,19 @@ def handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler
     url = f"https://np.reddit.com{submission.permalink}"
 
     wilds_sub = subreddit_tracker.subreddit_wilds
-    if wilds_sub:
+    if action.action == "removelink" and wilds_sub:
         reddit_handler.add_post(wilds_sub, url, title)
 
     # if post was removed by comment mod, also post to removals sub and discord
-    if action.mod.name in comment_mods:
+    if action.action in ["removelink", "approvelink"] and action.mod.name in comment_mods:
         removals_sub = subreddit_tracker.subreddit_removals
         if removals_sub:
             reddit_handler.add_post(removals_sub, url, title)
         removals_discord = subreddit_tracker.discord_removals_server
         removals_channel = subreddit_tracker.discord_removals_channel
         if removals_discord and removals_channel:
-            message = f"A comment moderator has removed a post. Please follow-up with this mod.\n" \
+            detail = "removed" if action.action == "removelink" else "approved"
+            message = f"A comment moderator has {detail} a post. Please follow-up with this mod.\n" \
                       f"Comment Mod: {action.mod.name}\n" \
                       f"Post: {url}\n" \
                       f"Title: {title}"
@@ -93,8 +94,7 @@ def handle_mod_actions(discord_client, google_sheets_recorder, reddit_handler, r
         subreddit_tracker = subreddit_trackers[action.subreddit.lower()]
         try:
             handle_mod_action(google_sheets_recorder, action)
-            if action.action == "removelink":
-                handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler)
+            handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler)
             if action.action == "editflair":
                 handle_post_flair_action(subreddit_tracker, action, reddit_handler)
         except Exception as e:
