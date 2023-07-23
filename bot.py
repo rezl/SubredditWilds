@@ -79,7 +79,7 @@ def handle_post_flair_action(subreddit_tracker, action, reddit_handler):
 
 
 def handle_mod_action(google_sheets_recorder, action):
-    if action.mod in ["AutoModerator", "StatementBot"]:
+    if action.mod in ["StatementBot"]:
         return
     link = action.target_permalink if hasattr(action, 'target_permalink') else ''
     details = action.details if hasattr(action, 'details') else ''
