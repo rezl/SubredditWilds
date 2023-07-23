@@ -24,8 +24,8 @@ def get_id(fullname):
 
 
 def handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler):
-    comment_mods = subreddit_tracker.get_comment_mods()
-    submission_id = get_id(action.target_fullname)
+    if action.action not in ["removelink", "approvelink"]:
+        return
     # Automod exempt
     if action.mod == "AutoModerator":
         return
@@ -35,6 +35,7 @@ def handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler
     if action.created_utc < subreddit_tracker.time_last_checked:
         return
 
+    submission_id = get_id(action.target_fullname)
     submission = subreddit_tracker.reddit.submission(id=submission_id)
     title_untruc = f"[{submission.score}] {submission.title}"
     title = (title_untruc[:275] + '...') if len(title_untruc) > 275 else title_untruc
@@ -45,7 +46,7 @@ def handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler
         reddit_handler.add_post(wilds_sub, url, title)
 
     # if post was removed by comment mod, also post to removals sub and discord
-    if action.action in ["removelink", "approvelink"] and action.mod.name in comment_mods:
+    if action.action in ["removelink", "approvelink"] and action.mod.name in subreddit_tracker.get_comment_mods():
         removals_sub = subreddit_tracker.subreddit_removals
         if removals_sub:
             reddit_handler.add_post(removals_sub, url, title)
