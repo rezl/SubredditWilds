@@ -41,18 +41,18 @@ def handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler
     title = (title_untruc[:275] + '...') if len(title_untruc) > 275 else title_untruc
     url = f"https://np.reddit.com{submission.permalink}"
 
-    wilds_sub = subreddit_tracker.subreddit_wilds
-    if action.action == "removelink" and wilds_sub:
-        reddit_handler.add_post(wilds_sub, url, title)
+    post_removals_sub = subreddit_tracker.subreddit_wilds
+    if action.action == "removelink" and post_removals_sub:
+        reddit_handler.add_post(post_removals_sub, url, title)
 
     # if post was removed by comment mod, also post to removals sub and discord
-    if action.action in ["removelink", "approvelink"] and action.mod.name in subreddit_tracker.get_comment_mods():
-        removals_sub = subreddit_tracker.subreddit_removals
-        if action.action == "removelink" and removals_sub:
-            reddit_handler.add_post(removals_sub, url, title)
-        removals_discord = subreddit_tracker.discord_removals_server
-        removals_channel = subreddit_tracker.discord_removals_channel
-        if removals_discord and removals_channel:
+    if action.mod.name in subreddit_tracker.get_comment_mods():
+        cm_post_actions_sub = subreddit_tracker.subreddit_removals
+        if cm_post_actions_sub:
+            reddit_handler.add_post(cm_post_actions_sub, url, title)
+        cm_actions_discord = subreddit_tracker.discord_removals_server
+        cm_actions_channel = subreddit_tracker.discord_removals_channel
+        if cm_actions_discord and cm_actions_channel:
             detail = "removed" if action.action == "removelink" else "approved"
             message = f"A comment moderator has {detail} a post. Please follow-up with this mod.\n" \
                       f"Comment Mod: {action.mod.name}\n" \
