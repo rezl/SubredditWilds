@@ -243,7 +243,7 @@ def create_reddit(bot_password, bot_username, client_id, client_secret, script_t
     )
 
 
-def run_forever():
+if __name__ == "__main__":
     # get config from env vars if set, otherwise from config file
     client_id = os.environ.get("CLIENT_ID", config.CLIENT_ID)
     client_secret = os.environ.get("CLIENT_SECRET", config.CLIENT_SECRET)
@@ -303,7 +303,3 @@ def run_forever():
     # this is required as otherwise discord fails when main thread is done
     while True:
         time.sleep(5)
-
-
-if __name__ == "__main__":
-    run_forever()
