@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import gc
 import traceback
 import os.path
 import time
@@ -30,9 +29,6 @@ class GoogleSheetsRecorder:
         self.startup_timestamp = datetime.now(timezone.utc).timestamp()
         self.monitored_subs = {}
 
-        # force gc to clean up response objects
-        gc.collect()
-
     def add_sheet_for_sub(self, subreddit_name, sheet_id, sheet_name):
         print(f"Adding google sheet recording for {subreddit_name}")
         monitored_sub = MonitoredSubreddit(subreddit_name, sheet_id, sheet_name)
@@ -56,8 +52,6 @@ class GoogleSheetsRecorder:
         values = [[formatted_dt, mod_name, action, link, details]]
 
         self.append_to_sheet_helper(sheet_id, sheet_name, values)
-        # force gc to clean up response objects
-        gc.collect()
 
     def append_to_sheet_helper(self, sheet_id, sheet_name, values):
         print(f'Adding to google sheet for {str(values)}')
@@ -65,12 +59,12 @@ class GoogleSheetsRecorder:
             print("\tDRY RUN!!!")
             return
 
-        max_retries = 3
-        initial_backoff_time_secs = 5
-
         if self.creds.expired:
             self.creds.refresh(Request())
 
+        message = ""
+        max_retries = 4
+        initial_backoff_time_secs = 5
         for i in range(max_retries):
             try:
                 request_range = f'{sheet_name}!A:E'
@@ -87,7 +81,6 @@ class GoogleSheetsRecorder:
                 return
             except HttpError as error:
                 message = f'Google API exception for {str(values)}: {str(error)}\n```{traceback.format_exc()}```'
-                self.discord_client.send_error_msg(message)
                 print(message)
 
                 if error.resp.status == 401:
@@ -98,6 +91,7 @@ class GoogleSheetsRecorder:
                 print(f'Retrying in {backoff_time_secs} seconds...')
                 time.sleep(backoff_time_secs)
 
+        self.discord_client.send_error_msg(message)
         print(f'Failed to update google sheets after {max_retries} retries.')
 
     def get_credentials(self):
