@@ -28,6 +28,9 @@ class GoogleSheetsRecorder:
         self.service = build('sheets', 'v4', credentials=self.creds)
         self.startup_timestamp = datetime.now(timezone.utc).timestamp()
         self.monitored_subs = {}
+        
+        # force gc to clean up response objects
+        gc.collect()
 
     def add_sheet_for_sub(self, subreddit_name, sheet_id, sheet_name):
         print(f"Adding google sheet recording for {subreddit_name}")
@@ -52,6 +55,9 @@ class GoogleSheetsRecorder:
         values = [[formatted_dt, mod_name, action, link, details]]
 
         self.append_to_sheet_helper(sheet_id, sheet_name, values)
+        
+        # force gc to clean up response objects
+        gc.collect()
 
     def append_to_sheet_helper(self, sheet_id, sheet_name, values):
         print(f'Adding to google sheet for {str(values)}')
