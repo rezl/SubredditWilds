@@ -64,6 +64,8 @@ def handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler
 
 
 def handle_post_flair_action(subreddit_tracker, action, reddit_handler):
+    if not action.target_fullname:
+        return
     submission = subreddit_tracker.reddit.submission(id=get_id(action.target_fullname))
     # assume normal removal methods (ie toolbox) always remove first then edit flair, so flair_helper shouldn't act
     if hasattr(submission, 'removed') and submission.removed:
