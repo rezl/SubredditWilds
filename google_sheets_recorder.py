@@ -38,7 +38,7 @@ class GoogleSheetsRecorder:
         monitored_sub = MonitoredSubreddit(subreddit_name, sheet_id, sheet_name)
         self.monitored_subs[subreddit_name.lower()] = monitored_sub
 
-    def append_to_sheet(self, subreddit_name, created_utc, mod_name, action, link, details, automod_report):
+    def append_to_sheet(self, subreddit_name, created_utc, mod_name, action, link, details):
         subreddit_name = subreddit_name.lower()
         if subreddit_name not in self.monitored_subs:
             print(f"Ignoring mod action as unmonitored sub: {subreddit_name}")
@@ -53,7 +53,7 @@ class GoogleSheetsRecorder:
 
         dt_utc = datetime.utcfromtimestamp(created_utc)
         formatted_dt = dt_utc.isoformat().replace('T', ' ')
-        values = [[formatted_dt, mod_name, action, link, details, automod_report]]
+        values = [[formatted_dt, mod_name, action, link, details]]
 
         self.append_to_sheet_helper(sheet_id, sheet_name, values)
         
