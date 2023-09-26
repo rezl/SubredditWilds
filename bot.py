@@ -82,13 +82,37 @@ def handle_post_flair_action(subreddit_tracker, action, reddit_handler):
     reddit_handler.write_removal_reason_custom(submission, response)
 
 
-def handle_mod_action(google_sheets_recorder, action):
+def handle_mod_action(google_sheets_recorder, reddit, action):
     if action.mod in ["StatementBot"]:
         return
+
+    automod_report = find_automod_report(reddit, action)
     link = action.target_permalink if hasattr(action, 'target_permalink') else ''
     details = action.details if hasattr(action, 'details') else ''
     google_sheets_recorder.append_to_sheet(action.subreddit, action.created_utc,
-                                           action.mod.name, action.action, link, details)
+                                           action.mod.name, action.action, link, details, automod_report)
+
+
+def find_automod_report(reddit, action):
+    if action.action in ["approvecomment", "removecomment"]:
+        content = reddit.comment(action.target_fullname)
+    elif action.action in ["approvelink", "removelink"]:
+        content = reddit.submission(action.target_fullname)
+    else:
+        content = None
+    if not content:
+        return ''
+    try:
+        if hasattr(content, 'mod_reports_dismissed'):
+            reports = content.mod_reports_dismissed
+            for report in reports:
+                # let's hope reports are always in [report, reporter] format?
+                if report[1] == 'AutoModerator':
+                    return report[0]
+            return ''
+    except Exception as e:
+        # hasattr can fail, handle this by not recording anything
+        return ''
 
 
 def handle_mod_actions(discord_client, google_sheets_recorder, reddit_handler, reddit, subreddit_trackers):
@@ -96,7 +120,7 @@ def handle_mod_actions(discord_client, google_sheets_recorder, reddit_handler, r
     for action in reddit.subreddit(subreddits).mod.stream.log():
         subreddit_tracker = subreddit_trackers[action.subreddit.lower()]
         try:
-            handle_mod_action(google_sheets_recorder, action)
+            handle_mod_action(google_sheets_recorder, reddit, action)
             handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler)
             if action.action == "editflair":
                 handle_post_flair_action(subreddit_tracker, action, reddit_handler)
@@ -245,7 +269,7 @@ def create_reddit(bot_password, bot_username, client_id, client_secret, script_t
     )
 
 
-if __name__ == "__main__":
+def run_forever():
     # get config from env vars if set, otherwise from config file
     client_id = os.environ.get("CLIENT_ID", config.CLIENT_ID)
     client_secret = os.environ.get("CLIENT_SECRET", config.CLIENT_SECRET)
@@ -305,3 +329,7 @@ if __name__ == "__main__":
     # this is required as otherwise discord fails when main thread is done
     while True:
         time.sleep(5)
+
+
+if __name__ == "__main__":
+    run_forever()
