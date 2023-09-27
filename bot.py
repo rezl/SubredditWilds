@@ -87,13 +87,18 @@ def handle_mod_action(google_sheets_recorder, reddit, action):
         return
 
     automod_report = find_automod_report(reddit, action)
+    if automod_report:
+        # if automod reported this content, the report is the automod rule
+        automod_rule = automod_report
+    elif action.mod == 'AutoModerator':
+        # if automod fitered this content, the action details is the automod rule
+        automod_rule = action.details if hasattr(action, 'details') else ''
+    else:
+        # otherwise there's no automod rule to persist
+        automod_rule = ''
     link = action.target_permalink if hasattr(action, 'target_permalink') else ''
-    details = action.details if hasattr(action, 'details') else ''
-    # the remove/approve actions details are largely junk and also
-    # this allows standardization with automod filters in google (all rules show up in 'details')
-    actual_details = automod_report if automod_report else details
     google_sheets_recorder.append_to_sheet(action.subreddit, action.created_utc,
-                                           action.mod.name, action.action, link, actual_details)
+                                           action.mod.name, action.action, link, automod_rule)
 
 
 def find_automod_report(reddit, action):
