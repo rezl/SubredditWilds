@@ -212,7 +212,8 @@ def should_respond(conversation):
 
     # message already contains a link to some reddit content
     subreddit = conversation.owner
-    if modmail_contains(conversation, f"{subreddit.display_name_prefixed}/comments/"):
+    if modmail_contains(conversation, f"{subreddit.display_name_prefixed}/comments/") or \
+            modmail_contains(conversation, f"{subreddit.display_name_prefixed}/s/"):
         return False
 
     # modmail asking about removed content, should respond asking for a link
