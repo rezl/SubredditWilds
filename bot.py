@@ -167,7 +167,6 @@ def determine_toxicity(text, toxicity_api_key):
 
         return float(response['confidence']) if response['class'] == "flag" else 0
     except Exception as e:
-        print(f"determine_toxicity failed for text, ignoring: {text}")
         return 0
 
 

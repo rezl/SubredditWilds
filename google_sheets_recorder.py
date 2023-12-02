@@ -61,7 +61,6 @@ class GoogleSheetsRecorder:
         gc.collect()
 
     def append_to_sheet_helper(self, sheet_id, sheet_name, values):
-        print(f'Adding to google sheet for {str(values)}')
         if Settings.is_dry_run:
             print("\tDRY RUN!!!")
             return
