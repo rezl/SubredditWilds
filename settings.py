@@ -41,7 +41,7 @@ class UFOsSettings(Settings):
     subreddit_wilds = None
     subreddit_removals = 'ufosremovals'
     discord_removals_server = 'UFO Moderators'
-    discord_removals_channel = 'cm-post-removals'
+    discord_removals_channel = 'post-moderation'
 
     google_sheet_id = '1H--XIuPwkBKad8hBTrn3oh4KFny6NJA0jXssB1IQ-Jw'
     google_sheet_name = 'Mod Actions'
