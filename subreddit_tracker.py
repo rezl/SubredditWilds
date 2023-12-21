@@ -21,11 +21,21 @@ class SubredditTracker:
 
         # detect last bot action in preference: wilds last post > removals last post > now
         # required as streams provide last 100 of stream on startup, ensure no duplication
-        self.time_last_checked = next(subreddit_wilds.new()).created_utc if subreddit_wilds else \
-            next(subreddit_removals.new()).created_utc if subreddit_removals \
-            else calendar.timegm(datetime.utcnow().utctimetuple())
+        subreddit_for_last_action = subreddit_wilds if subreddit_wilds else \
+            subreddit_removals if subreddit_removals else None
+        self.time_last_checked = self.get_time_last_checked_from_sub(subreddit_for_last_action)
         self.comment_mods_last_check = datetime.utcfromtimestamp(0)
         self.cached_comment_mods = self.get_comment_mods()
+
+    @staticmethod
+    def get_time_last_checked_from_sub(subreddit):
+        if subreddit and subreddit.new():
+            try:
+                return next(subreddit.new()).created_utc
+            except StopIteration:
+                return calendar.timegm(datetime.utcnow().utctimetuple())
+        else:
+            return calendar.timegm(datetime.utcnow().utctimetuple())
 
     def get_comment_mods(self):
         # refresh comment mods every day
