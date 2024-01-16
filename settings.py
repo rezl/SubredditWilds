@@ -7,6 +7,7 @@ class Settings:
 
     check_modmail = False
     check_comment_toxicity = False
+    check_posts_limit = False
 
     # comment mods are mods with, and only with, these permissions
     comment_mod_permissions = ["posts", "mail", "wiki"]
@@ -37,6 +38,7 @@ class CollapseSettings(Settings):
 
 class UFOsSettings(Settings):
     check_comment_toxicity = True
+    check_posts_limit = True
 
     subreddit_wilds = None
     subreddit_removals = 'ufosremovals'
