@@ -46,7 +46,7 @@ def handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler
     if action.action == "removelink" and post_removals_sub:
         reddit_handler.add_post(post_removals_sub, url, title)
 
-    # if post was removed by comment mod, also post to removals sub and discord
+    # if post was removed by comment mod, also post to removals sub and discord if supported
     if action.mod.name in subreddit_tracker.get_comment_mods():
         cm_post_actions_sub = subreddit_tracker.subreddit_removals
         if cm_post_actions_sub:
