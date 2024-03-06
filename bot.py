@@ -171,43 +171,9 @@ def determine_toxicity(text, toxicity_api_key):
         return 0
 
 
-def handle_posts_limit(discord_client, subreddit, reddit_handler):
-    for post in subreddit.stream.submissions():
-        try:
-            posts_limit = 2
-            if has_user_spammed(post, posts_limit):
-                reddit_handler.remove_content(f"User has posted more {posts_limit} in 24h - removing this post", post)
-        except Exception as e:
-            message = f"Exception when handling post {post.id}: {e}\n```{traceback.format_exc()}```"
-            discord_client.send_error_msg(message)
-            print(message)
-
-
 def get_adjusted_utc_timestamp(time_difference_mins):
     adjusted_utc_dt = datetime.utcnow() - timedelta(minutes=time_difference_mins)
     return calendar.timegm(adjusted_utc_dt.utctimetuple())
-
-
-def has_user_spammed(post, limit):
-    if not post.author:
-        return False
-    if not post.author.submissions:
-        return False
-    if hasattr(post, 'approved') and post.approved:
-        return False
-    prior_submission_count = 0
-    count_posts_after_utc = get_adjusted_utc_timestamp(24 * 60)
-    for prior_submission in post.author.submissions.new():
-        if prior_submission.created_utc < count_posts_after_utc:
-            return False
-        if hasattr(prior_submission, 'removed') and prior_submission.removed:
-            continue
-        if prior_submission.subreddit == post.subreddit:
-            prior_submission_count += 1
-            # needs to be greater than as this post will count towards total
-            if prior_submission_count > limit:
-                return True
-    return False
 
 
 def handle_modmail(discord_client, subreddits, reddit_handler):
@@ -306,19 +272,6 @@ def create_comment_thread(client_id, client_secret, bot_username, bot_password, 
     print(f"Created {name} thread")
 
 
-def create_posts_thread(client_id, client_secret, bot_username, bot_password, discord_client, reddit_handler,
-                        subreddit_name):
-    reddit = create_reddit(bot_password, bot_username, client_id, client_secret, "posts")
-    subreddit = reddit.subreddit(subreddit_name)
-
-    name = f"{subreddit_name}-Post"
-    thread = ResilientThread(discord_client, name,
-                             target=handle_posts_limit,
-                             args=(discord_client, subreddit, reddit_handler))
-    thread.start()
-    print(f"Created {name} thread")
-
-
 def create_reddit(bot_password, bot_username, client_id, client_secret, script_type):
     return praw.Reddit(
         client_id=client_id,
@@ -356,7 +309,6 @@ def run_forever():
         reddit_handler = RedditActionsHandler(discord_client)
         modmail_interested = list()
         toxicity_interested = list()
-        posts_interested = list()
         reddit = create_reddit(bot_password, bot_username, client_id, client_secret, "modactions")
         subreddit_trackers = dict()
         for subreddit_name in subreddit_names:
@@ -377,16 +329,12 @@ def run_forever():
                 modmail_interested.append(subreddit_name.lower())
             if settings.check_comment_toxicity:
                 toxicity_interested.append(subreddit_name.lower())
-            if settings.check_posts_limit:
-                posts_interested.append(subreddit_name.lower())
 
         create_mod_actions_thread(discord_client, recorder, reddit_handler, reddit, subreddit_trackers)
         create_modmail_thread(client_id, client_secret, bot_username, bot_password, discord_client, reddit_handler,
                               "+".join(modmail_interested))
         create_comment_thread(client_id, client_secret, bot_username, bot_password, discord_client, reddit_handler,
                               "+".join(toxicity_interested), toxicity_api_key)
-        create_posts_thread(client_id, client_secret, bot_username, bot_password, discord_client, reddit_handler,
-                            "+".join(posts_interested))
     except Exception as e:
         message = f"Exception in main processing: {e}\n```{traceback.format_exc()}```"
         discord_client.send_error_msg(message)
