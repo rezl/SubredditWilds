@@ -154,6 +154,27 @@ def handle_toxic_comments(discord_client, subreddit, reddit_handler, toxicity_ap
             print(message)
 
 
+def handle_posts(discord_client, subreddit):
+    for post in subreddit.stream.submissions():
+        try:
+            check_posts_after_utc = get_adjusted_utc_timestamp(10)
+            if post.created_utc > check_posts_after_utc:
+                message = (f"NEW POST!\n"
+                           f"{post.link_flair_text}:{post.title}\n"
+                           f"https://www.reddit.com{post.permalink}\n\n"
+                           f"{post.selftext}")
+                discord_client.send_msg("zomabelle", "general", message)
+        except Exception as e:
+            message = f"Exception when handling comment {post.id}: {e}\n```{traceback.format_exc()}```"
+            discord_client.send_error_msg(message)
+            print(message)
+
+
+def get_adjusted_utc_timestamp(time_difference_mins):
+    adjusted_utc_dt = datetime.utcnow() - timedelta(minutes=time_difference_mins)
+    return calendar.timegm(adjusted_utc_dt.utctimetuple())
+
+
 def determine_toxicity(text, toxicity_api_key):
     # don't even try to error handle this, the API sends back weird stuff all the time
     try:
@@ -272,6 +293,18 @@ def create_comment_thread(client_id, client_secret, bot_username, bot_password, 
     print(f"Created {name} thread")
 
 
+def create_post_thread(client_id, client_secret, bot_username, bot_password, discord_client, subreddit_name):
+    reddit = create_reddit(bot_password, bot_username, client_id, client_secret, "post")
+    subreddit = reddit.subreddit(subreddit_name)
+
+    name = f"{subreddit_name}-Post"
+    thread = ResilientThread(discord_client, name,
+                             target=handle_posts,
+                             args=(discord_client, subreddit))
+    thread.start()
+    print(f"Created {name} thread")
+
+
 def create_reddit(bot_password, bot_username, client_id, client_secret, script_type):
     return praw.Reddit(
         client_id=client_id,
@@ -309,19 +342,23 @@ def run_forever():
         reddit_handler = RedditActionsHandler(discord_client)
         modmail_interested = list()
         toxicity_interested = list()
+        post_interested = list()
         reddit = create_reddit(bot_password, bot_username, client_id, client_secret, "modactions")
         subreddit_trackers = dict()
         for subreddit_name in subreddit_names:
             settings = SettingsFactory.get_settings(subreddit_name)
             print(f"Creating {subreddit_name} subreddit with {type(settings).__name__} settings")
 
-            subreddit_base = reddit.subreddit(subreddit_name)
-            subreddit_wilds = reddit.subreddit(settings.subreddit_wilds) if settings.subreddit_wilds else None
-            subreddit_removals = reddit.subreddit(settings.subreddit_removals) if settings.subreddit_removals else None
-            subreddit_tracker = SubredditTracker(reddit, subreddit_base, subreddit_wilds, subreddit_removals,
-                                                 settings.comment_mod_permissions, settings.comment_mod_whitelist,
-                                                 settings.discord_removals_server, settings.discord_removals_channel)
-            subreddit_trackers[subreddit_name.lower()] = subreddit_tracker
+            if settings.check_modactions:
+                subreddit_base = reddit.subreddit(subreddit_name)
+                subreddit_wilds = reddit.subreddit(settings.subreddit_wilds) \
+                    if settings.subreddit_wilds else None
+                subreddit_removals = reddit.subreddit(settings.subreddit_removals) \
+                    if settings.subreddit_removals else None
+                subreddit_tracker = SubredditTracker(reddit, subreddit_base, subreddit_wilds, subreddit_removals,
+                                                     settings.comment_mod_permissions, settings.comment_mod_whitelist,
+                                                     settings.discord_removals_server, settings.discord_removals_channel)
+                subreddit_trackers[subreddit_name.lower()] = subreddit_tracker
 
             if settings.google_sheet_id and settings.google_sheet_name:
                 recorder.add_sheet_for_sub(subreddit_name, settings.google_sheet_id, settings.google_sheet_name)
@@ -329,12 +366,16 @@ def run_forever():
                 modmail_interested.append(subreddit_name.lower())
             if settings.check_comment_toxicity:
                 toxicity_interested.append(subreddit_name.lower())
+            if settings.check_posts:
+                post_interested.append(subreddit_name.lower())
 
         create_mod_actions_thread(discord_client, recorder, reddit_handler, reddit, subreddit_trackers)
         create_modmail_thread(client_id, client_secret, bot_username, bot_password, discord_client, reddit_handler,
                               "+".join(modmail_interested))
         create_comment_thread(client_id, client_secret, bot_username, bot_password, discord_client, reddit_handler,
                               "+".join(toxicity_interested), toxicity_api_key)
+        create_post_thread(client_id, client_secret, bot_username, bot_password, discord_client,
+                           "+".join(post_interested))
     except Exception as e:
         message = f"Exception in main processing: {e}\n```{traceback.format_exc()}```"
         discord_client.send_error_msg(message)

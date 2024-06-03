@@ -3,10 +3,12 @@ import re
 
 class Settings:
     # set to True to prevent any bot actions (report, remove, comments)
-    is_dry_run = True
+    is_dry_run = False
 
+    check_modactions = True
     check_modmail = False
     check_comment_toxicity = False
+    check_posts = False
 
     # comment mods are mods with, and only with, these permissions
     comment_mod_permissions = ["posts", "mail", "wiki"]
@@ -47,10 +49,21 @@ class UFOsSettings(Settings):
     google_sheet_name = 'Mod Actions'
 
 
+class SwiftSettings(Settings):
+    check_modactions = False
+    check_modmail = False
+    check_comment_toxicity = False
+    check_posts = True
+
+    subreddit_wilds = None
+    subreddit_removals = None
+
+
 class SettingsFactory:
     settings_classes = {
         'collapse': CollapseSettings,
         'ufos': UFOsSettings,
+        'erastourtickets': SwiftSettings,
     }
 
     @staticmethod
