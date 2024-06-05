@@ -28,7 +28,7 @@ class CollapseSettings(Settings):
     check_modmail = True
     check_comment_toxicity = True
 
-    subreddit_wilds = None
+    subreddit_wilds = 'collapse_wilds'
     subreddit_removals = 'collapseremovals'
     discord_removals_server = 'Collapse Moderators'
     discord_removals_channel = 'fm-general'
