@@ -163,9 +163,11 @@ def handle_modmail(discord_client, subreddits, reddit_handler):
             if should_respond(conversation):
                 message = f"Hi, thanks for messaging the r/{subreddit.display_name} mods. " \
                           "If this message is about removed content, " \
-                          "please respond with a link to the content in question.\n\n" \
+                          "*please respond with a link to the post/comment you're appealing or the " \
+                          "mod team may not action further*.\n\n" \
                           "This is an automated bot response. " \
-                          "An organic mod will respond to you soon, please allow 2 days as our team is across the world"
+                          "An organic mod will respond to you soon (if you have provided a link, if applicable)" \
+                          ", please allow 2 days as our team is across the world"
                 reddit_handler.reply_to_modmail(conversation, message)
         except Exception as e:
             message = f"Exception when handling modmail {conversation.id}: {e}\n```{traceback.format_exc()}```"
