@@ -71,6 +71,7 @@ class GoogleSheetsRecorder:
         message = ""
         max_retries = 4
         initial_backoff_time_secs = 5
+        last_error_status = 0
         for i in range(max_retries):
             try:
                 request_range = f'{sheet_name}!A:E'
@@ -88,6 +89,7 @@ class GoogleSheetsRecorder:
             except HttpError as error:
                 message = f'Google API exception for {str(values)}: {str(error)}\n```{traceback.format_exc()}```'
                 print(message)
+                last_error_status = error.resp.status
 
                 if error.resp.status == 401:
                     print(f'The credentials have been revoked or expired, refreshing again?')
@@ -97,7 +99,8 @@ class GoogleSheetsRecorder:
                 print(f'Retrying in {backoff_time_secs} seconds...')
                 time.sleep(backoff_time_secs)
 
-        self.discord_client.send_error_msg(message)
+        if last_error_status not in [500, 503]:
+            self.discord_client.send_error_msg(message)
         print(f'Failed to update google sheets after {max_retries} retries.')
 
     def get_credentials(self):
