@@ -112,7 +112,7 @@ def handle_bans(discord_client, subreddit_tracker, action):
     message = f"Banned user: u/{action.target_author} for {action.details}\n" \
               f"Moderator: {action.mod.name}\n" \
               f"URL: <{action.description}>"
-    discord_client.send_msg(subreddit_tracker.discord_removals_server, "bans", message)
+    discord_client.send_msg(subreddit_tracker.discord_removals_server, subreddit_tracker.discord_bans_channel, message)
 
 
 def handle_mod_actions(discord_client, google_sheets_recorder, reddit_handler, reddit, subreddit_trackers):
@@ -312,7 +312,8 @@ def run_forever():
             subreddit_removals = reddit.subreddit(settings.subreddit_removals) if settings.subreddit_removals else None
             subreddit_tracker = SubredditTracker(reddit, subreddit_base, subreddit_wilds, subreddit_removals,
                                                  settings.comment_mod_permissions, settings.comment_mod_whitelist,
-                                                 settings.discord_removals_server, settings.discord_removals_channel)
+                                                 settings.discord_removals_server, settings.discord_removals_channel,
+                                                 settings.discord_bans_channel)
             subreddit_trackers[subreddit_name.lower()] = subreddit_tracker
 
             if settings.google_sheet_id and settings.google_sheet_name:

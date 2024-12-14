@@ -30,6 +30,7 @@ class CollapseSettings(Settings):
     subreddit_removals = 'collapseremovals'
     discord_removals_server = 'Collapse Moderators'
     discord_removals_channel = 'fm-general'
+    discord_bans_channel = 'bans'
 
     google_sheet_id = '1cppV69sdHKbZG_65Z2JnDkjb7vxcC_238gFpgCqSoIU'
     google_sheet_name = 'Mod Actions'
@@ -42,6 +43,7 @@ class UFOsSettings(Settings):
     subreddit_removals = 'ufosremovals'
     discord_removals_server = 'UFO Moderators'
     discord_removals_channel = 'post-moderation'
+    discord_bans_channel = 'bot-notifications'
 
     google_sheet_id = '1H--XIuPwkBKad8hBTrn3oh4KFny6NJA0jXssB1IQ-Jw'
     google_sheet_name = 'Mod Actions'
