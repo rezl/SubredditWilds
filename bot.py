@@ -105,6 +105,16 @@ def find_automod_report(reddit, action):
         return ''
 
 
+def handle_bans(discord_client, subreddit_tracker, action):
+    if action.action not in ["banuser"]:
+        return
+
+    message = f"Banned user: u/{action.target_author} for {action.details}\n" \
+              f"Moderator: {action.mod.name}\n" \
+              f"URL: <{action.description}>"
+    discord_client.send_msg(subreddit_tracker.discord_removals_server, "bans", message)
+
+
 def handle_mod_actions(discord_client, google_sheets_recorder, reddit_handler, reddit, subreddit_trackers):
     subreddits = "+".join(list(subreddit_trackers.keys()))
     for action in reddit.subreddit(subreddits).mod.stream.log():
@@ -112,6 +122,7 @@ def handle_mod_actions(discord_client, google_sheets_recorder, reddit_handler, r
         try:
             handle_mod_action(google_sheets_recorder, reddit, action)
             handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler)
+            handle_bans(discord_client, subreddit_tracker, action)
         except Exception as e:
             message = f"Exception when handling action {action.id} for {action.subreddit}: {e}\n" \
                       f"```{traceback.format_exc()}```"
