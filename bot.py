@@ -109,9 +109,9 @@ def handle_bans(discord_client, subreddit_tracker, action):
     if action.action not in ["banuser"]:
         return
 
+    link_portion = f"\nURL: {action.target_permalink}" if hasattr(action, 'target_permalink') else ''
     message = f"Banned user: u/{action.target_author} for {action.details}\n" \
-              f"Moderator: {action.mod.name}\n" \
-              f"URL: <{action.description}>"
+              f"Moderator: {action.mod.name}{link_portion}"
     discord_client.send_msg(subreddit_tracker.discord_removals_server, subreddit_tracker.discord_bans_channel, message)
 
 
