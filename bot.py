@@ -133,6 +133,9 @@ def handle_mod_actions(discord_client, google_sheets_recorder, reddit_handler, r
 def handle_toxic_comments(discord_client, subreddit, reddit_handler, toxicity_api_key):
     for comment in subreddit.stream.comments():
         try:
+            if not comment.author or (hasattr(comment.author, 'is_suspended') and comment.author.is_suspended):
+                discord_client.send_error_msg(f"Found shadow banned user with: " + comment.permalink)
+                continue
             result = determine_toxicity(comment.body, toxicity_api_key)
             if result > 0.85:
                 percent = round(result * 100)
