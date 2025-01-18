@@ -133,7 +133,7 @@ def handle_mod_actions(discord_client, google_sheets_recorder, reddit_handler, r
 def handle_comments(discord_client, subreddit, reddit_handler, toxicity_api_key):
     for comment in subreddit.stream.comments():
         try:
-            handle_shadowbanned_users(discord_client, comment)
+            handle_shadowbanned_users(discord_client, reddit_handler, comment)
             handle_toxic_comments(discord_client, reddit_handler, toxicity_api_key, comment)
         except Exception as e:
             message = f"Exception when handling comment {comment.id}: {e}\n```{traceback.format_exc()}```"
@@ -141,19 +141,26 @@ def handle_comments(discord_client, subreddit, reddit_handler, toxicity_api_key)
             print(message)
 
 
-def handle_shadowbanned_users(discord_client, comment):
+def handle_shadowbanned_users(discord_client, reddit_handler, comment):
     try:
-        if not hasattr(comment, 'author'):
-            return
-        if not hasattr(comment.author, 'created'):
-            discord_client.send_error_msg(f"Found shadow banned user with: " + comment.permalink)
-            return
-        if hasattr(comment.author, 'is_suspended') and comment.author.is_suspended:
-            discord_client.send_error_msg(f"2Found suspended user with: " + comment.permalink)
-            return
+        if ((not hasattr(comment, 'author'))
+                or (not hasattr(comment.author, 'created'))
+                or (hasattr(comment.author, 'is_suspended') and comment.author.is_suspended)):
+            message_shadowbanned_user(discord_client, reddit_handler, comment)
     except Exception as e:
-        discord_client.send_error_msg(f"Found shadow banned user with: " + comment.permalink)
+        message_shadowbanned_user(discord_client, reddit_handler, comment)
 
+
+def message_shadowbanned_user(discord_client, reddit_handler, comment):
+    discord_client.send_error_msg(f"Found shadow banned user with: " + comment.permalink)
+    message = (f"Hi, you appear to be shadow banned by reddit. A shadow ban is a form of ban when reddit silently "
+               f"removes your content without your knowledge. Only reddit admins and moderators of the community "
+               f"you're commenting in can see the content.\n\n"
+               f"This is not a ban by {comment.subreddit_name_prefixed}, and the mod team cannot help you reverse the "
+               f"ban. We recommend visiting r/ShadowBan to confirm you're banned and how to appeal.\n\n"
+               f"We hope knowing this can help you.\n\n"
+               f"This is a bot - responses and messages are not monitored. If it appears to be wrong, please modmail.")
+    reddit_handler.write_removal_reason_custom(comment, message)
 
 def handle_toxic_comments(discord_client, reddit_handler, toxicity_api_key, comment):
     try:
