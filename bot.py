@@ -130,21 +130,44 @@ def handle_mod_actions(discord_client, google_sheets_recorder, reddit_handler, r
             print(message)
 
 
-def handle_toxic_comments(discord_client, subreddit, reddit_handler, toxicity_api_key):
+def handle_comments(discord_client, subreddit, reddit_handler, toxicity_api_key):
     for comment in subreddit.stream.comments():
         try:
-            if not comment.author or (hasattr(comment.author, 'is_suspended') and comment.author.is_suspended):
-                discord_client.send_error_msg(f"Found shadow banned user with: " + comment.permalink)
-                continue
-            result = determine_toxicity(comment.body, toxicity_api_key)
-            if result > 0.85:
-                percent = round(result * 100)
-                print(f'Comment ({comment.permalink}) reported @ {percent}% confidence')
-                reddit_handler.report_content(f"Automatic report for toxicity @ {percent}% confidence", comment)
+            handle_shadowbanned_users(discord_client, comment)
+            handle_toxic_comments(discord_client, reddit_handler, toxicity_api_key, comment)
         except Exception as e:
             message = f"Exception when handling comment {comment.id}: {e}\n```{traceback.format_exc()}```"
             discord_client.send_error_msg(message)
             print(message)
+
+
+def handle_shadowbanned_users(discord_client, comment):
+    try:
+        if not hasattr(comment, 'author'):
+            return
+        if not hasattr(comment.author, 'created'):
+            discord_client.send_error_msg(f"Found shadow banned user with: " + comment.permalink)
+            return
+        if hasattr(comment.author, 'is_suspended') and comment.author.is_suspended:
+            discord_client.send_error_msg(f"2Found suspended user with: " + comment.permalink)
+            return
+    except Exception as e:
+        message = f"Exception when handling shadowban comment {comment.id}: {e}\n```{traceback.format_exc()}```"
+        discord_client.send_error_msg(message)
+        print(message)
+
+
+def handle_toxic_comments(discord_client, reddit_handler, toxicity_api_key, comment):
+    try:
+        result = determine_toxicity(comment.body, toxicity_api_key)
+        if result > 0.85:
+            percent = round(result * 100)
+            print(f'Comment ({comment.permalink}) reported @ {percent}% confidence')
+            reddit_handler.report_content(f"Automatic report for toxicity @ {percent}% confidence", comment)
+    except Exception as e:
+        message = f"Exception when handling toxic comment {comment.id}: {e}\n```{traceback.format_exc()}```"
+        discord_client.send_error_msg(message)
+        print(message)
 
 
 def determine_toxicity(text, toxicity_api_key):
@@ -261,7 +284,7 @@ def create_comment_thread(client_id, client_secret, bot_username, bot_password, 
 
     name = f"{subreddit_name}-Comment"
     thread = ResilientThread(discord_client, name,
-                             target=handle_toxic_comments,
+                             target=handle_comments,
                              args=(discord_client, subreddit, reddit_handler, toxicity_api_key))
     thread.start()
     print(f"Created {name} thread")
