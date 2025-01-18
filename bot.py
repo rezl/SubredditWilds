@@ -152,9 +152,7 @@ def handle_shadowbanned_users(discord_client, comment):
             discord_client.send_error_msg(f"2Found suspended user with: " + comment.permalink)
             return
     except Exception as e:
-        message = f"Exception when handling shadowban comment {comment.id}: {e}\n```{traceback.format_exc()}```"
-        discord_client.send_error_msg(message)
-        print(message)
+        discord_client.send_error_msg(f"Found shadow banned user with: " + comment.permalink)
 
 
 def handle_toxic_comments(discord_client, reddit_handler, toxicity_api_key, comment):
