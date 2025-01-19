@@ -152,11 +152,11 @@ def handle_shadowbanned_users(discord_client, reddit_handler, comment):
 
 
 def message_shadowbanned_user(discord_client, reddit_handler, comment):
-    discord_client.send_error_msg(f"Found shadow banned user with: " + comment.permalink)
+    discord_client.send_error_msg(f"Found shadow banned user with: \n\nhttps://www.reddit.com" + comment.permalink)
     if 'collapse' in comment.subreddit_name_prefixed:
         message = (f"Hi, you appear to be shadow banned by reddit. A shadow ban is a form of ban when reddit silently "
                    f"removes your content without your knowledge. Only reddit admins and moderators of the community "
-                   f"you're commenting in can see the content.\n\n"
+                   f"you're commenting in can see the content, unless they manually approve it.\n\n"
                    f"This is not a ban by {comment.subreddit_name_prefixed}, and the mod team cannot help you reverse the "
                    f"ban. We recommend visiting r/ShadowBan to confirm you're banned and how to appeal.\n\n"
                    f"We hope knowing this can help you.\n\n"
