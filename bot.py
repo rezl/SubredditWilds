@@ -198,87 +198,11 @@ def get_adjusted_utc_timestamp(time_difference_mins):
     return calendar.timegm(adjusted_utc_dt.utctimetuple())
 
 
-def handle_modmail(discord_client, subreddits, reddit_handler):
-    for conversation in subreddits.mod.stream.modmail_conversations(state="new", sort="unread"):
-        subreddit = conversation.owner
-        print(f"Handling modmail: {str(subreddit)}: {str(conversation)}")
-        try:
-            if should_respond(conversation):
-                message = f"Hi, thanks for messaging the r/{subreddit.display_name} mods. " \
-                          "If this message is about removed content, " \
-                          "*please respond with a link to the post/comment you're appealing or the " \
-                          "mod team may not action further*.\n\n" \
-                          "This is an automated bot response. " \
-                          "An organic mod will respond to you soon (if you have provided a link, if applicable)" \
-                          ", please allow 2 days as our team is across the world"
-                reddit_handler.reply_to_modmail(conversation, message)
-        except Exception as e:
-            message = f"Exception when handling modmail {conversation.id}: {e}\n```{traceback.format_exc()}```"
-            discord_client.send_error_msg(message)
-            print(message)
-
-
-def modmail_contains(conversation, keyword):
-    for message in conversation.messages:
-        if keyword in message.body_markdown:
-            return True
-    return False
-
-
-def should_respond(conversation):
-    # whitelist of initiators to not respond to
-    first_author = conversation.messages[0].author
-    if first_author.name in ["ModSupportBot"]:
-        return False
-    if hasattr(first_author, 'is_admin') and first_author.is_admin:
-        return False
-    # already read - shouldn't occur, just extra protection
-    if not conversation.last_unread:
-        return False
-    # mod has already responded to the conversation - shouldn't occur, just extra protection
-    if len(conversation.authors) > 1 or conversation.last_mod_update:
-        return False
-
-    # message already contains a link to some reddit content
-    subreddit = conversation.owner
-    if modmail_contains(conversation, f"{subreddit.display_name_prefixed}/comments/") or \
-            modmail_contains(conversation, f"{subreddit.display_name_prefixed}/s/"):
-        return False
-
-    # modmail asking about removed content, should respond asking for a link
-    if modmail_contains(conversation, "remov") or modmail_contains(conversation, "delet"):
-        return True
-    actions = subreddit.mod.notes.redditors(conversation.user)
-    for action in actions:
-        if action.operator == "AutoModerator":
-            continue
-        time_diff_secs = time.time() - action.created_at
-        # no action in the last week
-        if time_diff_secs > timedelta(weeks=1).total_seconds():
-            return False
-        # person with recently removed content, should respond asking for a link
-        if action.action in ["removecomment", "removelink", "banuser"]:
-            return True
-    return False
-
-
 def create_mod_actions_thread(discord_client, recorder, reddit_handler, reddit, subreddit_trackers):
     subreddits = "+".join(list(subreddit_trackers.keys()))
     name = f"{subreddits}-ModActions"
     thread = ResilientThread(discord_client, name, target=handle_mod_actions,
                              args=(discord_client, recorder, reddit_handler, reddit, subreddit_trackers))
-    thread.start()
-    print(f"Created {name} thread")
-
-
-def create_modmail_thread(client_id, client_secret, bot_username, bot_password, discord_client, reddit_handler,
-                          subreddit_name):
-    reddit = create_reddit(bot_password, bot_username, client_id, client_secret, "modmail")
-    subreddit = reddit.subreddit(subreddit_name)
-
-    name = f"{subreddit_name}-Modmail"
-    thread = ResilientThread(discord_client, name,
-                             target=handle_modmail, args=(discord_client, subreddit, reddit_handler))
     thread.start()
     print(f"Created {name} thread")
 
@@ -331,7 +255,6 @@ def run_forever():
     try:
         recorder = GoogleSheetsRecorder(discord_client)
         reddit_handler = RedditActionsHandler(discord_client)
-        modmail_interested = list()
         toxicity_interested = list()
         reddit = create_reddit(bot_password, bot_username, client_id, client_secret, "modactions")
         subreddit_trackers = dict()
@@ -350,14 +273,10 @@ def run_forever():
 
             if settings.google_sheet_id and settings.google_sheet_name:
                 recorder.add_sheet_for_sub(subreddit_name, settings.google_sheet_id, settings.google_sheet_name)
-            if settings.check_modmail:
-                modmail_interested.append(subreddit_name.lower())
             if settings.check_comment_toxicity:
                 toxicity_interested.append(subreddit_name.lower())
 
         create_mod_actions_thread(discord_client, recorder, reddit_handler, reddit, subreddit_trackers)
-        create_modmail_thread(client_id, client_secret, bot_username, bot_password, discord_client, reddit_handler,
-                              "+".join(modmail_interested))
         create_comment_thread(client_id, client_secret, bot_username, bot_password, discord_client, reddit_handler,
                               "+".join(toxicity_interested), toxicity_api_key)
     except Exception as e:

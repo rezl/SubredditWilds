@@ -15,11 +15,6 @@ class RedditActionsHandler:
         print(f"Adding post to {sub}: {title}")
         self.reddit_call(lambda: sub.submit(title, url=url, send_replies=False))
 
-    def reply_to_modmail(self, conversation, message):
-        print(f"Responding to modmail {conversation.id}: {message}")
-        self.reddit_call(lambda: conversation.reply(body=message, author_hidden=False))
-        self.reddit_call(lambda: conversation.read(), reddit_throttle_secs=1)
-
     def write_removal_reason_custom(self, content, reason):
         print(f"Writing removal comment for {str(content)}: {reason}")
         comment = self.reddit_call(lambda: content.reply(reason))

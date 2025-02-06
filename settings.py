@@ -3,9 +3,8 @@ import re
 
 class Settings:
     # set to True to prevent any bot actions (report, remove, comments)
-    is_dry_run = False
+    is_dry_run = True
 
-    check_modmail = False
     check_comment_toxicity = False
 
     # comment mods are mods with, and only with, these permissions
@@ -23,7 +22,6 @@ class Settings:
 
 
 class CollapseSettings(Settings):
-    check_modmail = True
     check_comment_toxicity = True
 
     subreddit_wilds = 'collapse_wilds'

@@ -5,8 +5,6 @@ This bot automates various moderation tasks in Reddit. Here are the main feature
   * Whenever a post is removed, the bot will crosspost to a specified wilds subreddit
 * Posting comment mod removals to a removals subreddit or Discord channel
   * If a comment moderator removes a post, the bot will crosspost to a specified subreddit and/or message Discord channel
-* Handling modmail
-  * Bot response to modmail by asking the sender to provide a link to the removed content
 * Recording mod actions
   * Mod actions recorded to a Google Sheets spreadsheet
 
@@ -27,7 +25,6 @@ Run the bot with the python main.py command. The bot will start monitoring the s
 
 ## Settings
 * `is_dry_run`: Set to True to prevent any bot actions (report, remove, comments). This is useful for testing purposes.
-* `check_modmail`: Set to True to enable the bot to respond to modmail. (optional)
 * `comment_mod_permissions`: The permissions that comment mods should have. Comment mods are mods that should only remove comments and not posts. (optional)
 * `comment_mod_whitelist`: A whitelist of comment mods who should not have their posts checked. (optional)
 * `subreddit_wilds`: The subreddit where new posts should be added. (optional)
