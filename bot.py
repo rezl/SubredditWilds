@@ -146,27 +146,30 @@ def handle_shadowbanned_users(discord_client, reddit_handler, comment, subreddit
         if ((not hasattr(comment, 'author'))
                 or (not hasattr(comment.author, 'created'))
                 or (hasattr(comment.author, 'is_suspended') and comment.author.is_suspended)):
-            subreddit_tracker = subreddit_trackers[comment.subreddit.display_name.lower()]
-            discord_channel = subreddit_trackers.discord_shadowbans_channel
-            if discord_channel:
-                message = f"Shadowbanned user comment: https://www.reddit.com{comment.permalink}"
-                discord_client.send_msg(subreddit_tracker.discord_removals_server, discord_channel, message)
-            if subreddit_tracker.should_message_shadowbans:
-                message = (f"Hi, you appear to be shadow banned by reddit. "
-                           f"A shadow ban is a form of ban when reddit silently removes your content without your "
-                           f"knowledge. Only reddit admins and moderators of the community you're commenting in can see"
-                           f" the content, unless they manually approve it.\n\nThis is not a ban by "
-                           f"{comment.subreddit_name_prefixed}, and the mod team cannot help you reverse the ban. "
-                           f"We recommend visiting r/ShadowBan to confirm you're banned and how to appeal.\n\n"
-                           f"We hope knowing this can help you.\n\n"
-                           f"This is a bot - responses and messages are not monitored. "
-                           f"If it appears to be wrong, [please modmail us]"
-                           f"(https://www.reddit.com/message/compose?to=/r/collapse&subject=Shadowban Bot Error).")
-                reddit_handler.write_removal_reason_custom(comment, message)
+            respond_to_shadowban(discord_client, reddit_handler, comment, subreddit_trackers)
     except Exception as e:
-        discord_client.send_error_msg(f"Error in determining shadowban status: {comment}\n"
-                                      f"https://www.reddit.com{comment.permalink}\n"
-                                      f"Exception:{e}")
+        # Sometimes they also just return 404s so this handles that too
+        respond_to_shadowban(discord_client, reddit_handler, comment, subreddit_trackers)
+
+
+def respond_to_shadowban(discord_client, reddit_handler, comment, subreddit_trackers):
+    subreddit_tracker = subreddit_trackers[comment.subreddit.display_name.lower()]
+    discord_channel = subreddit_trackers.discord_shadowbans_channel
+    if discord_channel:
+        message = f"Shadowbanned user comment: https://www.reddit.com{comment.permalink}"
+        discord_client.send_msg(subreddit_tracker.discord_removals_server, discord_channel, message)
+    if subreddit_tracker.should_message_shadowbans:
+        message = (f"Hi, you appear to be shadow banned by reddit. "
+                   f"A shadow ban is a form of ban when reddit silently removes your content without your "
+                   f"knowledge. Only reddit admins and moderators of the community you're commenting in can see"
+                   f" the content, unless they manually approve it.\n\nThis is not a ban by "
+                   f"{comment.subreddit_name_prefixed}, and the mod team cannot help you reverse the ban. "
+                   f"We recommend visiting r/ShadowBan to confirm you're banned and how to appeal.\n\n"
+                   f"We hope knowing this can help you.\n\n"
+                   f"This is a bot - responses and messages are not monitored. "
+                   f"If it appears to be wrong, [please modmail us]"
+                   f"(https://www.reddit.com/message/compose?to=/r/collapse&subject=Shadowban Bot Error).")
+        reddit_handler.write_removal_reason_custom(comment, message)
 
 
 def handle_toxic_comments(discord_client, reddit_handler, toxicity_api_key, comment):
