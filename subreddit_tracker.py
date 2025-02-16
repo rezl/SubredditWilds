@@ -6,7 +6,7 @@ class SubredditTracker:
     def __init__(self, reddit, subreddit, subreddit_wilds, subreddit_removals,
                  comment_mod_permissions, comment_mod_whitelist,
                  discord_removals_server, discord_removals_channel,
-                 discord_bans_channel):
+                 discord_bans_channel, discord_shadowbans_channel, should_message_shadowbans):
         # wilds, removals, and the discord fields may be None
         self.subreddit_name = subreddit.display_name
         self.reddit = reddit
@@ -20,6 +20,8 @@ class SubredditTracker:
         self.discord_removals_server = discord_removals_server
         self.discord_removals_channel = discord_removals_channel
         self.discord_bans_channel = discord_bans_channel
+        self.discord_shadowbans_channel = discord_shadowbans_channel
+        self.should_message_shadowbans = should_message_shadowbans
 
         # detect last bot action in preference: wilds last post > removals last post > now
         # required as streams provide last 100 of stream on startup, ensure no duplication

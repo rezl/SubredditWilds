@@ -17,6 +17,9 @@ class Settings:
     discord_removals_server = None
     discord_removals_channel = None
 
+    discord_shadowbans_channel = None
+    should_message_shadowbans = False
+
     google_sheet_id = None
     google_sheet_name = None
 
@@ -29,6 +32,9 @@ class CollapseSettings(Settings):
     discord_removals_server = 'Collapse Moderators'
     discord_removals_channel = 'fm-general'
     discord_bans_channel = 'bans'
+
+    discord_shadowbans_channel = 'shadowbans'
+    should_message_shadowbans = True
 
     google_sheet_id = '1cppV69sdHKbZG_65Z2JnDkjb7vxcC_238gFpgCqSoIU'
     google_sheet_name = 'Mod Actions'
