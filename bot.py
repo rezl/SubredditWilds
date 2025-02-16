@@ -65,7 +65,7 @@ def handle_mod_removal(subreddit_tracker, discord_client, action, reddit_handler
 
 
 def handle_mod_action(google_sheets_recorder, reddit, action):
-    if action.mod in ["StatementBot"]:
+    if action.mod in ["StatementBot", "toolboxnotesxfer"]:
         return
 
     automod_report = find_automod_report(reddit, action)
