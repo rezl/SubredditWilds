@@ -36,8 +36,8 @@ class CollapseSettings(Settings):
     discord_shadowbans_channel = 'shadowbans'
     should_message_shadowbans = True
 
-    google_sheet_id = '1cppV69sdHKbZG_65Z2JnDkjb7vxcC_238gFpgCqSoIU'
-    google_sheet_name = 'Mod Actions'
+    google_sheet_id = None
+    google_sheet_name = None
 
 
 class UFOsSettings(Settings):
