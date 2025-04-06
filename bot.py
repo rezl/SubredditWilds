@@ -154,7 +154,7 @@ def handle_shadowbanned_users(discord_client, reddit_handler, comment, subreddit
 
 def respond_to_shadowban(discord_client, reddit_handler, comment, subreddit_trackers):
     subreddit_tracker = subreddit_trackers[comment.subreddit.display_name.lower()]
-    discord_channel = subreddit_trackers.discord_shadowbans_channel
+    discord_channel = subreddit_tracker.discord_shadowbans_channel
     if discord_channel:
         message = f"Shadowbanned user comment: https://www.reddit.com{comment.permalink}"
         discord_client.send_msg(subreddit_tracker.discord_removals_server, discord_channel, message)
